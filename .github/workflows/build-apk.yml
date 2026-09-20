@@ -33,8 +33,10 @@ jobs:
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # No setup-android step: the ubuntu runner image already ships the Android SDK
+      # with ANDROID_HOME set and the licences accepted, and Gradle downloads any
+      # missing platform or build-tools itself. android-actions/setup-android still
+      # installs the long-obsolete `tools` package, which sdkmanager now fails on.
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
