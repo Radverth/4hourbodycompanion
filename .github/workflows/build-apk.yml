@@ -10,8 +10,9 @@ concurrency:
   group: build-apk-${{ github.ref }}
   cancel-in-progress: true
 
+# Creating a release needs write access to repository contents.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -56,6 +57,53 @@ jobs:
           retention-days: 30
 
       # Kept on failure so a red build can be diagnosed without re-running it locally.
+      # Releases do not expire, unlike the 30-day run artifact, so this is the durable
+      # download point. Uses the preinstalled gh CLI rather than a third-party action.
+      - name: Publish release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Everything from the event goes through the environment rather than being
+          # interpolated into the script: a commit message is attacker-controllable text,
+          # and splicing it into shell source would let it run as code.
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message || 'Manual run' }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          version="$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts || echo '1.0')"
+          tag="v${version}-build.${RUN_NUMBER}"
+          apk="4hb-companion-${version}-build${RUN_NUMBER}-debug.apk"
+
+          cp app/build/outputs/apk/debug/app-debug.apk "$apk"
+
+          # Shell parameter expansion inserts these values literally; it does not re-parse
+          # them, so the heredoc is safe even though the delimiter is unquoted.
+          notes="$(cat <<EOF
+          Debug build, signed with the standard debug keystore — download the APK below and
+          sideload it.
+
+          Commit: ${COMMIT_SHA}
+
+          ${COMMIT_MESSAGE}
+
+          [Build log](${RUN_URL})
+          EOF
+          )"
+
+          # A re-run reuses its run number, so add the APK to the existing release rather
+          # than failing on a duplicate tag.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$apk" --clobber
+          else
+            gh release create "$tag" "$apk" \
+              --title "${version} (build ${RUN_NUMBER})" \
+              --notes "$notes" \
+              --target "$COMMIT_SHA"
+          fi
+
       - name: Upload test report
         if: failure()
         uses: actions/upload-artifact@v4
