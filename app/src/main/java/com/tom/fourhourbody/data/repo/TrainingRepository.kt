@@ -54,6 +54,9 @@ class TrainingRepository(private val dao: TrainingDao) {
 
     fun observeSessionsOn(date: LocalDate): Flow<List<SessionEntity>> = dao.observeSessionsOn(date)
 
+    fun sessionsBetween(from: LocalDate, to: LocalDate): Flow<List<SessionEntity>> =
+        dao.observeSessionsBetween(from, to)
+
     suspend fun activeStrengthConfigs(): List<ExerciseConfigEntity> =
         dao.getActiveConfigs().filterNot { it.equipment == TrainingConstants.KETTLEBELL_EQUIPMENT }
 

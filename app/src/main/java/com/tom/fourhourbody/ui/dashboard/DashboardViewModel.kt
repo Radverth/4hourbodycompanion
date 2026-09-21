@@ -15,12 +15,15 @@ import com.tom.fourhourbody.data.repo.SettingsRepository
 import com.tom.fourhourbody.data.repo.TrainingRepository
 import com.tom.fourhourbody.domain.SleepNight
 import com.tom.fourhourbody.domain.adherence.PillarAdherence
+import com.tom.fourhourbody.domain.synergy.SynergyEngine
+import com.tom.fourhourbody.domain.synergy.SynergyState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -57,6 +60,15 @@ class DashboardViewModel(
         .flatMapLatest { days -> dashboardRepository.adherence(today, days) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /**
+     * The one pairing with a half still open today, if there is one. Deliberately not tied to
+     * the adherence window selector — this is about today, not about a rate.
+     */
+    val synergyNudge: StateFlow<SynergyState?> =
+        dashboardRepository.synergies(today, NUDGE_WINDOW_DAYS)
+            .map(SynergyEngine::liveNudge)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     init {
         viewModelScope.launch { loadNextWeights() }
     }
@@ -89,6 +101,8 @@ class DashboardViewModel(
     }
 
     companion object {
+        private const val NUDGE_WINDOW_DAYS = 7
+
         fun factory(container: AppContainer): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 DashboardViewModel(
