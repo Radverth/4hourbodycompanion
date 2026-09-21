@@ -10,12 +10,48 @@ import com.tom.fourhourbody.data.entity.ExerciseConfigEntity
 import com.tom.fourhourbody.data.entity.ExerciseLogEntity
 import com.tom.fourhourbody.data.entity.FrequencySettingEntity
 import com.tom.fourhourbody.data.entity.KettlebellRoundEntity
+import com.tom.fourhourbody.data.entity.RunEntity
 import com.tom.fourhourbody.data.entity.SessionEntity
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
 @Dao
 interface TrainingDao {
+
+    @Insert
+    suspend fun insertRun(run: RunEntity): Long
+
+    @Update
+    suspend fun updateRun(run: RunEntity)
+
+    /** At most one run is open at a time; the newest wins if an old one was left unclosed. */
+    @Query("SELECT * FROM runs WHERE endDate IS NULL ORDER BY runNumber DESC, id DESC LIMIT 1")
+    suspend fun getActiveRun(): RunEntity?
+
+    @Query("SELECT * FROM runs WHERE endDate IS NULL ORDER BY runNumber DESC, id DESC LIMIT 1")
+    fun observeActiveRun(): Flow<RunEntity?>
+
+    @Query("SELECT * FROM runs ORDER BY runNumber DESC, id DESC")
+    suspend fun getRuns(): List<RunEntity>
+
+    @Query("SELECT * FROM runs ORDER BY runNumber DESC, id DESC")
+    fun observeRuns(): Flow<List<RunEntity>>
+
+    @Query("SELECT * FROM sessions WHERE runId = :runId ORDER BY date ASC, id ASC")
+    suspend fun getSessionsForRun(runId: Long): List<SessionEntity>
+
+    @Query("SELECT COUNT(*) FROM sessions WHERE runId = :runId AND completed = 1")
+    suspend fun countCompletedInRun(runId: Long): Int
+
+    @Query(
+        """
+        SELECT el.* FROM exercise_logs el
+        INNER JOIN sessions s ON s.id = el.sessionId
+        WHERE s.runId = :runId AND s.completed = 1
+        ORDER BY s.date ASC, el.id ASC
+        """
+    )
+    suspend fun getLogsForRun(runId: Long): List<ExerciseLogEntity>
 
     @Insert
     suspend fun insertSession(session: SessionEntity): Long

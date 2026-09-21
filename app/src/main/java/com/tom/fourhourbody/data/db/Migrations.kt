@@ -69,4 +69,32 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+/**
+ * Adds runs — the training block between one stall and the next — and links sessions to them.
+ *
+ * Existing sessions keep a null runId rather than being back-filled into an invented run:
+ * they happened before runs were tracked, and pretending otherwise would put fabricated
+ * history in front of someone who would have no way to tell.
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `runs` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `runNumber` INTEGER NOT NULL,
+                `startDate` INTEGER NOT NULL,
+                `endDate` INTEGER,
+                `endedBy` TEXT,
+                `restDaysAtStart` INTEGER NOT NULL,
+                `restDaysAtEnd` INTEGER
+            )
+            """.trimIndent()
+        )
+        db.execSQL("ALTER TABLE sessions ADD COLUMN runId INTEGER")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_sessions_runId` ON `sessions` (`runId`)")
+    }
+}
+
+val ALL_MIGRATIONS: Array<Migration> =
+    arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)

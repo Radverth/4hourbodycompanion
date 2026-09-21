@@ -1,25 +1,39 @@
 package com.tom.fourhourbody.ui.training
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tom.fourhourbody.domain.run.RunSummary
 import com.tom.fourhourbody.domain.training.TrainingConstants
 import com.tom.fourhourbody.ui.common.SectionCard
 import com.tom.fourhourbody.ui.common.rememberContainer
+import com.tom.fourhourbody.ui.theme.NumeralMedium
+import com.tom.fourhourbody.ui.theme.NumeralSmall
+import com.tom.fourhourbody.ui.theme.Palette
 import com.tom.fourhourbody.util.displayShort
+import com.tom.fourhourbody.util.kgDisplay
 
 @Composable
 fun TrainingHomeScreen(
@@ -31,6 +45,7 @@ fun TrainingHomeScreen(
     val viewModel: TrainingViewModel = viewModel(factory = TrainingViewModel.factory(container))
     val schedule by viewModel.schedule.collectAsStateWithLifecycle()
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
+    val runs by viewModel.runs.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -38,6 +53,10 @@ fun TrainingHomeScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { Text("Training", style = MaterialTheme.typography.headlineMedium) }
+
+        runs.firstOrNull()?.takeIf { !it.isComplete }?.let { open ->
+            item { CurrentRunStrip(open) }
+        }
 
         item {
             val current = schedule
@@ -91,7 +110,22 @@ fun TrainingHomeScreen(
             )
         }
 
-        item { Text("Recent", style = MaterialTheme.typography.titleMedium) }
+        val finished = runs.filter { it.isComplete }
+        if (finished.isNotEmpty()) {
+            item {
+                Spacer(Modifier.height(4.dp))
+                Text("Past runs", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "+${finished.sumOf { it.totalGainKg }.kgDisplay()} banked across " +
+                        "${finished.size} ${if (finished.size == 1) "run" else "runs"}.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.TextSecondary
+                )
+            }
+            items(finished, key = { it.runNumber }) { run -> FinishedRunRow(run) }
+        }
+
+        item { Text("Recent sessions", style = MaterialTheme.typography.titleMedium) }
 
         items(sessions.take(5), key = { it.id }) { session ->
             Column(Modifier.fillMaxWidth()) {
@@ -107,5 +141,61 @@ fun TrainingHomeScreen(
                 )
             }
         }
+    }
+}
+
+/**
+ * The run in progress. It shows only what has already been logged — sessions done and weight
+ * added so far — so the strip is a record of the block, never a target to chase.
+ */
+@Composable
+private fun CurrentRunStrip(run: RunSummary) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Palette.EmberSurface)
+            .border(1.dp, Palette.EmberLine, RoundedCornerShape(16.dp))
+            .padding(18.dp)
+    ) {
+        Text("RUN IN PROGRESS", style = MaterialTheme.typography.labelSmall, color = Palette.EmberText)
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text("RUN ${run.runNumber}", style = NumeralMedium, color = Palette.Ember)
+            Text(
+                "  ${run.sessions} ${if (run.sessions == 1) "session" else "sessions"} · " +
+                    "day ${run.days}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextSecondary,
+                modifier = Modifier.padding(bottom = 3.dp)
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (run.totalGainKg > 0) {
+                "+${run.totalGainKg.kgDisplay()} added so far, on ${run.restDaysBefore} days rest."
+            } else {
+                "Running on ${run.restDaysBefore} days rest. Nothing banked yet."
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = Palette.EmberText
+        )
+    }
+}
+
+@Composable
+private fun FinishedRunRow(run: RunSummary) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Run ${run.runNumber}", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "${run.sessions} ${if (run.sessions == 1) "session" else "sessions"} · " +
+                    "${run.days} days" +
+                    (run.stalledOn?.let { " · stalled on $it" } ?: ""),
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextSecondary
+            )
+        }
+        Text("+${run.totalGainKg.kgDisplay()}", style = NumeralSmall, color = Palette.Ember)
     }
 }

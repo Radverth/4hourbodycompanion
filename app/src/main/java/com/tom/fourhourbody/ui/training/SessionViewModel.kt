@@ -9,12 +9,14 @@ import com.tom.fourhourbody.AppContainer
 import com.tom.fourhourbody.data.entity.ExerciseConfigEntity
 import com.tom.fourhourbody.data.entity.ExerciseLogEntity
 import com.tom.fourhourbody.data.entity.KettlebellRoundEntity
+import com.tom.fourhourbody.data.entity.RunEnd
 import com.tom.fourhourbody.data.entity.SettingsEntity
 import com.tom.fourhourbody.data.entity.StretchLogEntity
 import com.tom.fourhourbody.data.entity.StretchRoutine
 import com.tom.fourhourbody.data.repo.SettingsRepository
 import com.tom.fourhourbody.data.repo.StretchRepository
 import com.tom.fourhourbody.data.repo.TrainingRepository
+import com.tom.fourhourbody.domain.run.RunSummary
 import com.tom.fourhourbody.domain.training.ExerciseResult
 import com.tom.fourhourbody.domain.training.ProgressionEngine
 import com.tom.fourhourbody.domain.training.SessionEvaluation
@@ -41,15 +43,29 @@ sealed interface SessionStage {
     data class Strength(val index: Int) : SessionStage
     data class Rest(val nextIndex: Int) : SessionStage
 
-    /** A miss of more than one rep ends the session here. */
-    data class Stalled(val exerciseName: String) : SessionStage
+    /** A miss of more than one rep ends the session — and with it the run — here. */
+    data class Stalled(val exerciseName: String, val runNumber: Int) : SessionStage
 
     /** Hip flexor stretch, called from the stretch pillar rather than duplicated. */
     data object KettlebellPrep : SessionStage
     data object Tabata : SessionStage
     data object Abs : SessionStage
-    data class Summary(val evaluation: SessionEvaluation, val restDaysNow: Int) : SessionStage
+    data class Summary(
+        val evaluation: SessionEvaluation,
+        val restDaysNow: Int,
+        val run: RunProgress
+    ) : SessionStage
 }
+
+/**
+ * Where this session sat in its run, and — when the session's stall closed the run — what
+ * the whole run earned.
+ */
+data class RunProgress(
+    val runNumber: Int,
+    val sessionsThisRun: Int,
+    val completed: RunSummary?
+)
 
 data class ExercisePrompt(
     val config: ExerciseConfigEntity,
@@ -186,7 +202,10 @@ class SessionViewModel(
 
             when {
                 ProgressionEngine.isStall(reps, config.targetReps) ->
-                    _stage.value = SessionStage.Stalled(config.exerciseName)
+                    _stage.value = SessionStage.Stalled(
+                        exerciseName = config.exerciseName,
+                        runNumber = trainingRepository.currentRun(today).runNumber
+                    )
 
                 index == configs.lastIndex -> _stage.value = nextAfterStrength()
 
@@ -244,7 +263,28 @@ class SessionViewModel(
             } else {
                 trainingRepository.frequency().currentRestDaysBetweenSessions
             }
-            _stage.value = SessionStage.Summary(evaluation, restDays)
+
+            // Read the run before closing it, so the number survives the close.
+            val run = trainingRepository.currentRun(today)
+            val sessionsThisRun = trainingRepository.completedSessionsInCurrentRun()
+
+            // The stall closes the run. applyStall ran first, so the run records the gap the
+            // next one will actually train on.
+            val completed = if (evaluation.stalled) {
+                trainingRepository.endRun(RunEnd.STALL, today)
+            } else {
+                null
+            }
+
+            _stage.value = SessionStage.Summary(
+                evaluation = evaluation,
+                restDaysNow = restDays,
+                run = RunProgress(
+                    runNumber = run.runNumber,
+                    sessionsThisRun = sessionsThisRun,
+                    completed = completed
+                )
+            )
         }
     }
 

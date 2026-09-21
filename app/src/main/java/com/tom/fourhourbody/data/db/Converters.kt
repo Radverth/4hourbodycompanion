@@ -3,6 +3,7 @@ package com.tom.fourhourbody.data.db
 import androidx.room.TypeConverter
 import com.tom.fourhourbody.data.entity.ColdExposureType
 import com.tom.fourhourbody.data.entity.DietMode
+import com.tom.fourhourbody.data.entity.RunEnd
 import com.tom.fourhourbody.data.entity.StretchMode
 import com.tom.fourhourbody.data.entity.StretchRoutine
 import java.time.DayOfWeek
@@ -31,6 +32,12 @@ class Converters {
         if (raw.isBlank()) emptySet()
         else raw.split(",").mapNotNull { it.trim().toIntOrNull() }.map(DayOfWeek::of).toSet()
     }
+
+    @TypeConverter
+    fun runEndToString(value: RunEnd?): String? = value?.name
+
+    @TypeConverter
+    fun stringToRunEnd(value: String?): RunEnd? = value?.let(RunEnd::valueOf)
 
     @TypeConverter
     fun dietModeToString(value: DietMode?): String? = value?.name
