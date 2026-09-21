@@ -180,7 +180,22 @@ class DashboardRepository(
      * Per-pillar completion over the last [windowDays] days. Disabled pillars are left out
      * entirely — their history stays in the database, it just stops being scored.
      */
-    fun adherence(today: LocalDate, windowDays: Int): Flow<List<PillarAdherence>> {
+    /**
+     * Enabled pillars only — what the Today screen and the adherence view measure.
+     */
+    fun adherence(today: LocalDate, windowDays: Int): Flow<List<PillarAdherence>> =
+        adherenceAll(today, windowDays).map { (settings, all) ->
+            all.filter { settings.isEnabled(it.pillar) }
+        }
+
+    /**
+     * Every pillar, switched on or not, with the settings that say which are. The deck needs
+     * the ones that are off too — a card you are not running is still a card you own.
+     */
+    fun adherenceAll(
+        today: LocalDate,
+        windowDays: Int
+    ): Flow<Pair<SettingsEntity, List<PillarAdherence>>> {
         val from = today.minusDays((windowDays - 1).toLong())
 
         val trainingFlow = combine(
@@ -239,7 +254,7 @@ class DashboardRepository(
         ) { training, stretches, nutrition, sleep, (settings, lifestyle) ->
             val byPillar = (listOf(training, stretches, nutrition, sleep) + lifestyle)
                 .associateBy { it.pillar }
-            Pillar.entries.filter(settings::isEnabled).mapNotNull { byPillar[it] }
+            settings to Pillar.entries.mapNotNull { byPillar[it] }
         }
     }
 }

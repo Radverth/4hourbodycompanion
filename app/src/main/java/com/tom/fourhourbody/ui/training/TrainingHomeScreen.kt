@@ -39,7 +39,8 @@ import com.tom.fourhourbody.util.kgDisplay
 fun TrainingHomeScreen(
     onStartSession: () -> Unit,
     onOpenHistory: () -> Unit,
-    onOpenExercises: () -> Unit
+    onOpenExercises: () -> Unit,
+    onOpenDeck: () -> Unit
 ) {
     val container = rememberContainer()
     val viewModel: TrainingViewModel = viewModel(factory = TrainingViewModel.factory(container))
@@ -99,6 +100,14 @@ fun TrainingHomeScreen(
                 title = "Exercises",
                 subtitle = "Slots, equipment and rep targets.",
                 onClick = onOpenExercises
+            )
+        }
+
+        item {
+            SectionCard(
+                title = "Your deck",
+                subtitle = "What every exercise and protocol has earned so far.",
+                onClick = onOpenDeck
             )
         }
 

@@ -33,6 +33,9 @@ class TrainingRepository(private val dao: TrainingDao) {
 
     val sessions: Flow<List<SessionEntity>> = dao.observeSessions()
 
+    /** Every logged set from a completed session, oldest first. */
+    val completedLogs: Flow<List<ExerciseLogEntity>> = dao.observeCompletedLogs()
+
     fun schedule(today: LocalDate): Flow<TrainingSchedule> =
         combine(dao.observeLastCompletedSession(), dao.observeFrequency()) { last, freq ->
             val restDays = freq?.currentRestDaysBetweenSessions ?: TrainingConstants.INITIAL_REST_DAYS
@@ -53,6 +56,8 @@ class TrainingRepository(private val dao: TrainingDao) {
 
     suspend fun activeStrengthConfigs(): List<ExerciseConfigEntity> =
         dao.getActiveConfigs().filterNot { it.equipment == TrainingConstants.KETTLEBELL_EQUIPMENT }
+
+    suspend fun config(id: Long): ExerciseConfigEntity? = dao.getConfig(id)
 
     suspend fun upsertConfig(config: ExerciseConfigEntity) = dao.upsertConfig(config)
 

@@ -22,6 +22,13 @@ fun MoreScreen(onOpen: (String) -> Unit) {
         item { Text("More", style = MaterialTheme.typography.headlineMedium) }
         item {
             SectionCard(
+                title = "Your deck",
+                subtitle = "Every protocol and exercise you own, and what each has earned.",
+                onClick = { onOpen(Routes.DECK) }
+            )
+        }
+        item {
+            SectionCard(
                 title = "Sleep",
                 subtitle = "Nightly checklist.",
                 onClick = { onOpen(Routes.SLEEP) }

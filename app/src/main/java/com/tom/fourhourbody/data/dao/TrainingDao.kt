@@ -91,6 +91,17 @@ interface TrainingDao {
     )
     suspend fun getLastLogFor(exerciseName: String): ExerciseLogEntity?
 
+    /** Every logged set from a completed session, oldest first — the deck's play counts. */
+    @Query(
+        """
+        SELECT el.* FROM exercise_logs el
+        INNER JOIN sessions s ON s.id = el.sessionId
+        WHERE s.completed = 1
+        ORDER BY s.date ASC, el.id ASC
+        """
+    )
+    fun observeCompletedLogs(): Flow<List<ExerciseLogEntity>>
+
     @Insert
     suspend fun insertKettlebellRound(round: KettlebellRoundEntity): Long
 
@@ -102,6 +113,9 @@ interface TrainingDao {
 
     @Query("SELECT * FROM exercise_configs WHERE isActive = 1 ORDER BY orderIndex ASC, id ASC")
     suspend fun getActiveConfigs(): List<ExerciseConfigEntity>
+
+    @Query("SELECT * FROM exercise_configs WHERE id = :id")
+    suspend fun getConfig(id: Long): ExerciseConfigEntity?
 
     @Upsert
     suspend fun upsertConfig(config: ExerciseConfigEntity)

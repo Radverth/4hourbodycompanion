@@ -15,6 +15,7 @@ object Routes {
     const val SLEEP = "sleep"
     const val COLD = "cold"
     const val CREATINE = "creatine"
+    const val DECK = "deck"
     const val PROGRESS = "progress"
     const val MORE = "more"
     const val SETTINGS = "settings"
