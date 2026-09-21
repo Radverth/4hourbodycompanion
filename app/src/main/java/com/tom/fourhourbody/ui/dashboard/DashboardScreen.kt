@@ -38,6 +38,7 @@ import com.tom.fourhourbody.data.entity.Pillar
 import com.tom.fourhourbody.data.repo.DashboardState
 import com.tom.fourhourbody.data.repo.MotivationState
 import com.tom.fourhourbody.domain.creatine.CreatineCycle
+import com.tom.fourhourbody.domain.synergy.SynergyState
 import com.tom.fourhourbody.ui.common.ActionRow
 import com.tom.fourhourbody.ui.common.ChainPill
 import com.tom.fourhourbody.ui.common.CompletionRing
@@ -64,6 +65,7 @@ fun DashboardScreen(onOpenPillar: (String) -> Unit) {
     val nextWeights by viewModel.nextWeights.collectAsStateWithLifecycle()
     val adherence by viewModel.adherence.collectAsStateWithLifecycle()
     val window by viewModel.window.collectAsStateWithLifecycle()
+    val synergyNudge by viewModel.synergyNudge.collectAsStateWithLifecycle()
 
     val current = state
 
@@ -110,6 +112,8 @@ fun DashboardScreen(onOpenPillar: (String) -> Unit) {
         if (current.settings.isEnabled(Pillar.NUTRITION)) {
             motivation?.let { m -> item { CheatDayStrip(m) } }
         }
+
+        synergyNudge?.let { nudge -> item { SynergyNudgeStrip(nudge) } }
 
         item { Spacer(Modifier.height(12.dp)) }
 
@@ -515,3 +519,49 @@ private fun LazyListScope.pillarRows(
 
 private fun Double.trimmed(): String =
     if (this % 1.0 == 0.0) "${this.toInt()}" else "%.1f".format(this)
+
+/**
+ * One half of a pairing has already landed today, so the other half is now the smallest
+ * useful thing in the app. It only ever appears in that state — a combo already complete
+ * says nothing, and one with neither half landed would be noise.
+ */
+@Composable
+private fun SynergyNudgeStrip(state: SynergyState) {
+    val synergy = state.synergy
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Palette.EmberSurface)
+            .border(1.dp, Palette.EmberLine, RoundedCornerShape(14.dp))
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                "ONE HALF IN — ${synergy.name.uppercase()}",
+                style = MaterialTheme.typography.labelSmall,
+                color = Palette.EmberText
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                synergy.prompt,
+                style = MaterialTheme.typography.bodyLarge,
+                color = Palette.TextPrimary
+            )
+        }
+        Row(Modifier.padding(start = 12.dp)) {
+            synergy.pillars.forEach { pillar ->
+                Box(
+                    Modifier
+                        .size(8.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Palette.of(pillar))
+                )
+                Spacer(Modifier.size(4.dp))
+            }
+        }
+    }
+}

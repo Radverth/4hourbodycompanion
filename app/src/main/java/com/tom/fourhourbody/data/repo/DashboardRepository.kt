@@ -1,11 +1,15 @@
 package com.tom.fourhourbody.data.repo
 
+import com.tom.fourhourbody.data.entity.ColdExposureType
 import com.tom.fourhourbody.data.entity.Pillar
 import com.tom.fourhourbody.data.entity.SettingsEntity
 import com.tom.fourhourbody.data.entity.StretchRoutine
 import com.tom.fourhourbody.domain.adherence.AdherenceRules
 import com.tom.fourhourbody.domain.adherence.PillarAdherence
 import com.tom.fourhourbody.domain.creatine.CreatineCycle
+import com.tom.fourhourbody.domain.synergy.DaySignals
+import com.tom.fourhourbody.domain.synergy.SynergyEngine
+import com.tom.fourhourbody.domain.synergy.SynergyState
 import com.tom.fourhourbody.domain.training.SessionScheduler
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -255,6 +259,74 @@ class DashboardRepository(
             val byPillar = (listOf(training, stretches, nutrition, sleep) + lifestyle)
                 .associateBy { it.pillar }
             settings to Pillar.entries.mapNotNull { byPillar[it] }
+        }
+    }
+
+    /**
+     * The book's own pairings, over the same window as adherence.
+     *
+     * Every signal here is read back out of what was already logged — a synergy reports that
+     * two things landed together, it never grants anything. The useful half is [halfOpen]:
+     * when one side has landed and the other has not, there is a specific, small thing to do.
+     */
+    fun synergies(today: LocalDate, windowDays: Int): Flow<List<SynergyState>> {
+        val from = today.minusDays((windowDays - 1).toLong())
+
+        val trainingFlow = combine(
+            trainingRepository.sessionsBetween(from, today),
+            stretchRepository.logsBetween(from, today)
+        ) { sessions, stretches ->
+            val completedOn = sessions.filter { it.completed }.map { it.date }.toSet()
+            val activationSessions = stretches
+                .filter { it.routine == StretchRoutine.PRE_WORKOUT && it.sessionId != null }
+                .map { it.date }
+                .toSet()
+            completedOn to activationSessions
+        }
+
+        val nutritionFlow = combine(
+            nutritionRepository.observeDaysBetween(from, today),
+            nutritionRepository.observeDamageControlBetween(from, today)
+        ) { days, damage ->
+            val cheatDays = days.filter { it.isCheatDay }.map { it.date }.toSet()
+            cheatDays to damage.associate { it.date to it.ticks }
+        }
+
+        val lifestyleFlow = combine(
+            coldRepository.observeBetween(from, today),
+            sleepRepository.observeBetween(from, today),
+            creatineRepository.observeBetween(from, today)
+        ) { cold, sleep, creatine ->
+            Triple(
+                cold.filter { it.type == ColdExposureType.PRE_BED_BATH }.map { it.date }.toSet(),
+                sleep.filter(AdherenceRules::isSleepNightCompliant).map { it.date }.toSet(),
+                creatine.filter { it.morningTaken && it.eveningTaken }.map { it.date }.toSet()
+            )
+        }
+
+        return combine(
+            trainingFlow,
+            nutritionFlow,
+            lifestyleFlow
+        ) { (completedOn, activationOn), (cheatDays, damageTicks), lifestyle ->
+            val (preBedCold, goodNights, fullDoses) = lifestyle
+            val window = (0 until windowDays).map { offset ->
+                val date = from.plusDays(offset.toLong())
+                DaySignals(
+                    date = date,
+                    sessionCompleted = date in completedOn,
+                    preWorkoutActivationInSession = date in activationOn,
+                    preBedCold = date in preBedCold,
+                    sleepCompliant = date in goodNights,
+                    isCheatDay = date in cheatDays,
+                    damageControlTicks = damageTicks[date] ?: 0,
+                    creatineFullDose = date in fullDoses
+                )
+            }
+            SynergyEngine.evaluate(
+                today = window.last(),
+                window = window
+            )
         }
     }
 }

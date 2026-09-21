@@ -13,6 +13,7 @@ import com.tom.fourhourbody.domain.deck.CardKind
 import com.tom.fourhourbody.domain.deck.Deck
 import com.tom.fourhourbody.domain.deck.DeckBuilder
 import com.tom.fourhourbody.domain.deck.DeckCard
+import com.tom.fourhourbody.domain.synergy.SynergyState
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -44,6 +45,11 @@ class DeckViewModel(
             logs = logs
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** The book's own pairings, over the same window the pillar tiers read. */
+    val synergies: StateFlow<List<SynergyState>> =
+        dashboardRepository.synergies(LocalDate.now(), windowDays)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
      * Moves a card in or out of the deck. Cards are never deleted, only benched — the log

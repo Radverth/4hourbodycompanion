@@ -1,5 +1,6 @@
 package com.tom.fourhourbody.data.repo
 
+import com.tom.fourhourbody.data.dao.DamageControlOnDate
 import com.tom.fourhourbody.data.dao.NutritionDao
 import com.tom.fourhourbody.data.entity.DamageControlLogEntity
 import com.tom.fourhourbody.data.entity.DietDayLogEntity
@@ -13,6 +14,9 @@ class NutritionRepository(private val dao: NutritionDao) {
 
     fun observeDamageControl(dietDayId: Long): Flow<DamageControlLogEntity?> =
         dao.observeDamageControl(dietDayId)
+
+    fun observeDamageControlBetween(from: LocalDate, to: LocalDate): Flow<List<DamageControlOnDate>> =
+        dao.observeDamageControlBetween(from, to)
 
     fun observeDaysBetween(from: LocalDate, to: LocalDate): Flow<List<DietDayLogEntity>> =
         dao.observeDaysBetween(from, to)

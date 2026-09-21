@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,6 +33,7 @@ import com.tom.fourhourbody.domain.deck.CardKind
 import com.tom.fourhourbody.domain.deck.CardTier
 import com.tom.fourhourbody.domain.deck.Deck
 import com.tom.fourhourbody.domain.deck.DeckCard
+import com.tom.fourhourbody.domain.synergy.SynergyState
 import com.tom.fourhourbody.ui.common.rememberContainer
 import com.tom.fourhourbody.ui.theme.NumeralLarge
 import com.tom.fourhourbody.ui.theme.Palette
@@ -50,6 +52,7 @@ fun DeckScreen() {
     val container = rememberContainer()
     val viewModel: DeckViewModel = viewModel(factory = DeckViewModel.factory(container))
     val deck by viewModel.deck.collectAsStateWithLifecycle()
+    val synergies by viewModel.synergies.collectAsStateWithLifecycle()
 
     val current = deck
 
@@ -66,6 +69,20 @@ fun DeckScreen() {
         }
 
         item { DeckHeadline(current) }
+
+        if (synergies.isNotEmpty()) {
+            item {
+                SectionLabel("COMBOS")
+                Text(
+                    "Pairings the book itself makes, where doing both does more than doing " +
+                        "either. Nothing is scored — these only report what landed together.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.TextSecondary
+                )
+            }
+            items(synergies, key = { it.synergy.id }) { state -> SynergyRow(state) }
+            item { Spacer(Modifier.height(6.dp)) }
+        }
 
         item { SectionLabel("IN PLAY") }
         cardRows(current.inDeck, viewModel::toggle)
@@ -202,6 +219,71 @@ private fun TierPips(tier: CardTier, colour: Color) {
                     .size(7.dp)
                     .clip(RoundedCornerShape(999.dp))
                     .background(if (index < tier.ordinal) colour else Palette.DotEmpty)
+            )
+        }
+    }
+}
+
+/**
+ * One combo. A synergy that has fired today says so; one with a half still open says which
+ * half — that is the only part of this worth acting on, so it gets the accent.
+ */
+@Composable
+private fun SynergyRow(state: SynergyState) {
+    val synergy = state.synergy
+    val live = state.halfOpen
+    val accent = if (live) Palette.Ember else Palette.of(synergy.pillars.first())
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (live) Palette.EmberSurface else Palette.Surface)
+            .border(
+                width = 1.dp,
+                color = if (live) Palette.EmberLine else Palette.Line,
+                shape = RoundedCornerShape(14.dp)
+            )
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            synergy.pillars.forEach { pillar ->
+                Box(
+                    Modifier
+                        .size(8.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Palette.of(pillar))
+                )
+                Spacer(Modifier.size(5.dp))
+            }
+            Text(
+                synergy.name,
+                style = MaterialTheme.typography.titleMedium,
+                color = Palette.TextPrimary
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                when {
+                    state.firedToday -> "TODAY"
+                    state.everFired -> "${state.timesInWindow}× in ${state.windowDays}d"
+                    else -> "NOT YET"
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = if (state.firedToday) accent else Palette.TextTertiary
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Text(synergy.what, style = MaterialTheme.typography.bodyMedium, color = Palette.TextSecondary)
+        Spacer(Modifier.height(6.dp))
+        Text(synergy.why, style = MaterialTheme.typography.bodySmall, color = Palette.TextTertiary)
+
+        if (live) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                synergy.prompt,
+                style = MaterialTheme.typography.labelLarge,
+                color = Palette.Ember
             )
         }
     }

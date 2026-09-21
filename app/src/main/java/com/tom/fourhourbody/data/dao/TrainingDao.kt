@@ -74,6 +74,9 @@ interface TrainingDao {
     @Query("SELECT * FROM sessions WHERE date = :date ORDER BY id DESC")
     fun observeSessionsOn(date: LocalDate): Flow<List<SessionEntity>>
 
+    @Query("SELECT * FROM sessions WHERE date BETWEEN :from AND :to ORDER BY date ASC, id ASC")
+    fun observeSessionsBetween(from: LocalDate, to: LocalDate): Flow<List<SessionEntity>>
+
     @Query("SELECT COUNT(*) FROM sessions WHERE completed = 1 AND date BETWEEN :from AND :to")
     fun countCompletedBetween(from: LocalDate, to: LocalDate): Flow<Int>
 
