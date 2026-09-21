@@ -3,7 +3,6 @@ package com.tom.fourhourbody.data.db
 import androidx.room.TypeConverter
 import com.tom.fourhourbody.data.entity.ColdExposureType
 import com.tom.fourhourbody.data.entity.DietMode
-import com.tom.fourhourbody.data.entity.MealSlot
 import com.tom.fourhourbody.data.entity.StretchMode
 import com.tom.fourhourbody.data.entity.StretchRoutine
 import java.time.DayOfWeek
@@ -38,12 +37,6 @@ class Converters {
 
     @TypeConverter
     fun stringToDietMode(value: String?): DietMode? = value?.let(DietMode::valueOf)
-
-    @TypeConverter
-    fun mealSlotToString(value: MealSlot?): String? = value?.name
-
-    @TypeConverter
-    fun stringToMealSlot(value: String?): MealSlot? = value?.let(MealSlot::valueOf)
 
     @TypeConverter
     fun routineToString(value: StretchRoutine?): String? = value?.name

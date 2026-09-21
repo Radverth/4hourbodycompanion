@@ -21,19 +21,6 @@ data class DietDayLogEntity(
     val notes: String? = null
 )
 
-@Entity(tableName = "meal_logs", indices = [Index("dietDayId")])
-data class MealLogEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val dietDayId: Long,
-    val mealSlot: MealSlot,
-    val proteinTag: String? = null,
-    val legumeTag: String? = null,
-    val vegTag: String? = null,
-    /** Only offered in Hybrid mode on a training day. */
-    val riceIncluded: Boolean = false,
-    val soupUsed: Boolean = false
-)
-
 /** Surfaced only when the day is flagged as a cheat day. A checklist, never a requirement. */
 @Entity(tableName = "damage_control_logs", indices = [Index(value = ["dietDayId"], unique = true)])
 data class DamageControlLogEntity(

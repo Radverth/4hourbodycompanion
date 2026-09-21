@@ -12,7 +12,7 @@ Fully on-device: no backend, no login, no network calls.
 | --- | --- |
 | Training | Occam's Protocol sessions: 7+ reps to failure (10+ on leg press), 5s up / 5s down, exactly 3 minutes rest, rule-driven frequency |
 | Static stretches | Three book-sourced routines — pre-kettlebell, rest-day mobility, desk reset — through one stretch engine |
-| Nutrition | Slow-Carb / Hybrid rule compliance, meal tagging, cheat day with damage control |
+| Nutrition | Slow-Carb / Hybrid rule compliance, cheat day with damage control |
 | Sleep | Nightly checklist (temperature, darkness, screens, wine timing, cold exposure, wake time) plus an optional quality rating |
 | Cold exposure | Shower / ice pack / pre-bed bath, timed or typed in |
 | Creatine | 3.5 g twice daily across a 28-day cycle |
@@ -33,6 +33,9 @@ These live in `domain/`, not in the UI, and are covered by unit tests:
   the session hit its target. Rounded up to the nearest 0.5 kg so the step is never undercut.
 - **A cheat day counts as adherent** when it is logged. It is part of the plan; damage control
   is a set of optional taps, not a requirement.
+- **A compliant day costs one tap.** "All three held" logs the whole day; only the day
+  something slipped costs more than that. Defaults beat willpower, and the common case should
+  never be the expensive one.
 - **The wine check is one check**, combining count and timing, because the book's finding is
   about finishing 4+ hours before bed rather than the count alone.
 
@@ -78,7 +81,8 @@ Requires the Android SDK (compileSdk 35, minSdk 26) and JDK 17.
 
 ## Out of scope
 
-No backend or login. No calorie/macro counting — nutrition tracking is rule compliance and meal
-tagging, not a food database. Nothing from the book's sex/testosterone chapters, its sprinting,
+No backend or login. No calorie/macro counting and no meal tagging — nutrition tracking is rule
+compliance only. A dedicated calorie tracker does the macro side better than this app would, and
+what it cannot answer is whether the four rules held, which is the question this one exists for. Nothing from the book's sex/testosterone chapters, its sprinting,
 polyphasic sleep, injection or powerlifting-record chapters. No wearable or health-platform
 integration.

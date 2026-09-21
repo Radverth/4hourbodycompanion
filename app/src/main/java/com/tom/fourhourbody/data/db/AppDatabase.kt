@@ -21,7 +21,6 @@ import com.tom.fourhourbody.data.entity.ExerciseConfigEntity
 import com.tom.fourhourbody.data.entity.ExerciseLogEntity
 import com.tom.fourhourbody.data.entity.FrequencySettingEntity
 import com.tom.fourhourbody.data.entity.KettlebellRoundEntity
-import com.tom.fourhourbody.data.entity.MealLogEntity
 import com.tom.fourhourbody.data.entity.MeasurementEntity
 import com.tom.fourhourbody.data.entity.SessionEntity
 import com.tom.fourhourbody.data.entity.SettingsEntity
@@ -45,7 +44,6 @@ import com.tom.fourhourbody.data.entity.StretchLogEntity
         StretchLogEntity::class,
         StretchConfigEntity::class,
         DietDayLogEntity::class,
-        MealLogEntity::class,
         DamageControlLogEntity::class,
         SleepLogEntity::class,
         ColdExposureLogEntity::class,
@@ -53,7 +51,7 @@ import com.tom.fourhourbody.data.entity.StretchLogEntity
         MeasurementEntity::class,
         SettingsEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
