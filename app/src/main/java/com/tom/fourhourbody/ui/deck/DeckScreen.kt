@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tom.fourhourbody.domain.adherence.PillarAdherence
 import com.tom.fourhourbody.domain.deck.CardKind
 import com.tom.fourhourbody.domain.deck.CardTier
 import com.tom.fourhourbody.domain.deck.Deck
@@ -36,6 +37,7 @@ import com.tom.fourhourbody.domain.deck.DeckCard
 import com.tom.fourhourbody.domain.synergy.SynergyState
 import com.tom.fourhourbody.ui.common.rememberContainer
 import com.tom.fourhourbody.ui.theme.NumeralLarge
+import com.tom.fourhourbody.ui.theme.NumeralSmall
 import com.tom.fourhourbody.ui.theme.Palette
 import com.tom.fourhourbody.util.kgDisplay
 
@@ -53,6 +55,7 @@ fun DeckScreen() {
     val viewModel: DeckViewModel = viewModel(factory = DeckViewModel.factory(container))
     val deck by viewModel.deck.collectAsStateWithLifecycle()
     val synergies by viewModel.synergies.collectAsStateWithLifecycle()
+    val adherence by viewModel.adherence.collectAsStateWithLifecycle()
 
     val current = deck
 
@@ -69,6 +72,16 @@ fun DeckScreen() {
         }
 
         item { DeckHeadline(current) }
+
+        if (adherence.isNotEmpty()) {
+            item {
+                SectionLabel("LAST 30 DAYS")
+                Spacer(Modifier.height(10.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    adherence.forEach { entry -> AdherenceBar(entry) }
+                }
+            }
+        }
 
         if (synergies.isNotEmpty()) {
             item {
@@ -289,6 +302,47 @@ private fun SynergyRow(state: SynergyState) {
                 style = MaterialTheme.typography.labelLarge,
                 color = Palette.Ember
             )
+        }
+    }
+}
+
+/** One pillar's rate over the window. Moved here from Today, where it was review, not action. */
+@Composable
+private fun AdherenceBar(entry: PillarAdherence) {
+    val colour = Palette.of(entry.pillar)
+    Column(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                entry.pillar.label,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                entry.detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextTertiary
+            )
+            Spacer(Modifier.size(10.dp))
+            Text("${entry.percent}%", style = NumeralSmall)
+        }
+        Spacer(Modifier.height(6.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(5.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(Palette.DotEmpty)
+        ) {
+            // fillMaxWidth rejects a zero fraction, and an empty bar is a real state.
+            if (entry.percent > 0) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(entry.percent / 100f)
+                        .height(5.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(colour)
+                )
+            }
         }
     }
 }

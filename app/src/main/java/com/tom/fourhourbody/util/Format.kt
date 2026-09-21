@@ -9,6 +9,11 @@ private val dayFormatter = DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDe
 
 fun LocalDate.displayShort(): String = format(dayFormatter)
 
+/** "Monday 21 September" — the quiet dateline at the top of Today. */
+private val longDayFormatter = DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault())
+
+fun LocalDate.displayLong(): String = format(longDayFormatter)
+
 fun Int.asClock(): String {
     val minutes = this / 60
     val seconds = this % 60

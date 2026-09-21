@@ -2,10 +2,10 @@ package com.tom.fourhourbody.ui.dashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,16 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -31,7 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -39,26 +34,22 @@ import com.tom.fourhourbody.data.entity.Pillar
 import com.tom.fourhourbody.data.repo.DashboardState
 import com.tom.fourhourbody.data.repo.MotivationState
 import com.tom.fourhourbody.data.repo.RunStatus
-import com.tom.fourhourbody.data.repo.TrainingToday
-import com.tom.fourhourbody.domain.creatine.CreatineCycle
-import com.tom.fourhourbody.domain.synergy.SynergyState
-import com.tom.fourhourbody.ui.common.ActionRow
-import com.tom.fourhourbody.ui.common.ChainPill
-import com.tom.fourhourbody.ui.common.CompletionRing
-import com.tom.fourhourbody.ui.common.LabelledProgress
+import com.tom.fourhourbody.domain.today.Focus
 import com.tom.fourhourbody.ui.common.rememberContainer
 import com.tom.fourhourbody.ui.nav.Routes
-import com.tom.fourhourbody.ui.theme.NumeralSmall
-import com.tom.fourhourbody.ui.theme.NumeralMedium
 import com.tom.fourhourbody.ui.theme.Palette
 import com.tom.fourhourbody.util.asTimeOfDay
-import com.tom.fourhourbody.util.displayShort
+import com.tom.fourhourbody.util.displayLong
 import com.tom.fourhourbody.util.kgDisplay
 
 /**
- * Today. Not a status report — the one thing that matters gets the colour, the size and the
- * only primary button, and every other pillar carries its action inline so nothing has to be
- * navigated to first.
+ * Today, and one question: what now.
+ *
+ * This screen used to carry nine blocks, because one was added every time something new was
+ * built and none was ever taken away. Each was defensible alone and together they were a wall
+ * you had to read before you could act. What is left is the thing that is due, a mark for
+ * every other pillar, and one quiet line of standing. Everything that is review rather than
+ * action now lives on the deck.
  */
 @Composable
 fun DashboardScreen(onOpenPillar: (String) -> Unit) {
@@ -67,285 +58,174 @@ fun DashboardScreen(onOpenPillar: (String) -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val motivation by viewModel.motivation.collectAsStateWithLifecycle()
     val nextWeights by viewModel.nextWeights.collectAsStateWithLifecycle()
-    val adherence by viewModel.adherence.collectAsStateWithLifecycle()
-    val window by viewModel.window.collectAsStateWithLifecycle()
-    val synergyNudge by viewModel.synergyNudge.collectAsStateWithLifecycle()
     val runStatus by viewModel.runStatus.collectAsStateWithLifecycle()
+    val synergyNudge by viewModel.synergyNudge.collectAsStateWithLifecycle()
+    val focus by viewModel.focus.collectAsStateWithLifecycle()
 
     val current = state
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(0.dp)
-    ) {
-        item {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(start = 20.dp, end = 20.dp, top = 22.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column {
-                    Text("Today", style = MaterialTheme.typography.headlineMedium)
-                    Text(
-                        current?.date?.displayShort() ?: "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Palette.TextSecondary
-                    )
-                }
-                motivation?.let { m ->
-                    if (m.headline.current > 0) {
-                        ChainPill(days = m.headline.current, passesLeft = m.headline.passesLeft)
-                    }
-                }
-            }
-        }
-
-        if (current == null) {
-            item { Text("Loading…", Modifier.padding(20.dp)) }
-            return@LazyColumn
-        }
-
-        item { StatusStrip(runStatus, motivation, current.training) }
-
-        item { IntentionStrip(current, motivation) }
-
-        if (current.settings.isEnabled(Pillar.TRAINING)) {
-            item { TrainingHero(current, nextWeights, onOpenPillar) }
-        }
-
-        if (current.settings.isEnabled(Pillar.NUTRITION)) {
-            motivation?.let { m -> item { CheatDayStrip(m) } }
-        }
-
-        synergyNudge?.let { nudge -> item { SynergyNudgeStrip(nudge) } }
-
-        item { Spacer(Modifier.height(12.dp)) }
-
-        pillarRows(current, motivation, viewModel::markDayClean, onOpenPillar)
-
-        item {
-            Spacer(Modifier.height(20.dp))
-            Text(
-                "Adherence",
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
-            Spacer(Modifier.height(10.dp))
-            Row(
-                Modifier.padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf(7, 30).forEach { days ->
-                    FilterChip(
-                        selected = window == days,
-                        onClick = { viewModel.setWindow(days) },
-                        label = { Text("Last $days days") },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Palette.Ember,
-                            selectedLabelColor = Palette.EmberInk
-                        )
-                    )
-                }
-            }
-            Spacer(Modifier.height(4.dp))
-        }
-
-        items(adherence, key = { it.pillar.name }) { entry ->
-            LabelledProgress(
-                label = entry.pillar.label,
-                detail = entry.detail,
-                percent = entry.percent,
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
-        }
-    }
-}
-
-/**
- * Your own plan, played back at the moment of decision. Stating when and where is one of the
- * few interventions with a large, repeatedly replicated effect on follow-through.
- */
-@Composable
-private fun IntentionStrip(state: DashboardState, motivation: MotivationState?) {
-    val enabled = state.settings.enabledPillars.size
-    val done = listOf(
-        state.training.completedToday,
-        state.stretches.deskResetCountToday > 0 || state.stretches.inlineDoneThisSession,
-        state.nutrition.dayLogged,
-        state.sleep.logged,
-        state.creatine.morningTaken && state.creatine.eveningTaken
-    ).count { it }
-
-    Row(
-        Modifier
-            .padding(horizontal = 20.dp, vertical = 14.dp)
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(Palette.Surface)
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(13.dp)
-    ) {
-        CompletionRing(done = done, total = enabled.coerceAtLeast(1))
-        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            val intention = motivation?.trainingIntention
-            val onShift = motivation?.onShiftNow == true
-            val endsAt = motivation?.shiftEndsAtMinutes
-
-            Text(
-                when {
-                    onShift && endsAt != null -> "At work until ${endsAt.asTimeOfDay()}."
-                    intention != null -> "You said you'd $intention."
-                    else -> "$done of $enabled done today."
-                },
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                when {
-                    onShift && intention != null -> "Then: $intention."
-                    onShift -> "$done of $enabled done — the rest is for after."
-                    intention != null -> "$done of $enabled done today."
-                    else -> "Set when you'll train in Settings and this will remind you."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = Palette.TextSecondary
-            )
-        }
-    }
-}
-
-@Composable
-private fun TrainingHero(
-    state: DashboardState,
-    nextWeights: List<NextWeight>,
-    onOpenPillar: (String) -> Unit
-) {
-    val training = state.training
-    val due = training.dueToday && !training.completedToday
-
     Column(
         Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(if (due) Palette.EmberSurface else Palette.Surface)
-            .then(
-                if (due) {
-                    Modifier.border(1.dp, Palette.EmberLine, RoundedCornerShape(16.dp))
-                } else {
-                    Modifier
-                }
-            )
-            .padding(18.dp)
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (due) {
-                Text(
-                    "SESSION DUE",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Palette.EmberInk,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(Palette.Ember)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                )
+        Spacer(Modifier.height(18.dp))
+        Text(
+            current?.date?.displayLong() ?: "",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Palette.TextSecondary
+        )
+
+        if (current == null) {
+            Spacer(Modifier.height(24.dp))
+            Text("Loading…", color = Palette.TextSecondary)
+            return@Column
+        }
+
+        Spacer(Modifier.height(22.dp))
+        Hero(
+            focus = focus,
+            state = current,
+            motivation = motivation,
+            nextWeights = nextWeights,
+            comboPrompt = synergyNudge?.synergy?.prompt,
+            comboName = synergyNudge?.synergy?.name,
+            onOpenPillar = onOpenPillar,
+            onMarkDayClean = viewModel::markDayClean
+        )
+
+        Spacer(Modifier.height(30.dp))
+        PillarDots(
+            state = current,
+            onOpenPillar = onOpenPillar,
+            onMarkDayClean = viewModel::markDayClean,
+            onTakeCreatine = viewModel::takeNextCreatineDose
+        )
+
+        Spacer(Modifier.height(30.dp))
+        StandingLine(runStatus, motivation)
+        Spacer(Modifier.height(20.dp))
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// The hero: one thing, with what it pays before you do it rather than after.
+// ---------------------------------------------------------------------------------------
+
+@Composable
+private fun Hero(
+    focus: Focus,
+    state: DashboardState,
+    motivation: MotivationState?,
+    nextWeights: List<NextWeight>,
+    comboPrompt: String?,
+    comboName: String?,
+    onOpenPillar: (String) -> Unit,
+    onMarkDayClean: () -> Unit
+) {
+    val onShift = motivation?.onShiftNow == true
+    val shiftEnd = motivation?.shiftEndsAtMinutes
+
+    when (focus) {
+        Focus.TRAIN -> HeroCard(
+            kicker = if (onShift) "SESSION DUE — AFTER WORK" else "SESSION DUE",
+            headline = intention(onShift, shiftEnd, motivation?.trainingIntention),
+            body = nextWeights.take(2).joinToString(", ") {
+                "${it.exerciseName.lowercase()} ${it.weightKg.kgDisplay()}"
+            }.takeIf { it.isNotBlank() }?.let { "Waiting for you: $it." },
+            action = "Start session",
+            onAction = { onOpenPillar(Routes.SESSION) },
+            secondary = "Or just the warm-up — 3 minutes",
+            onSecondary = { onOpenPillar(Routes.SESSION) }
+        )
+
+        Focus.COMBO -> HeroCard(
+            kicker = "ONE HALF IN${comboName?.let { " — ${it.uppercase()}" }.orEmpty()}",
+            headline = comboPrompt ?: "One step left.",
+            body = null,
+            action = null,
+            onAction = {},
+            secondary = null,
+            onSecondary = {}
+        )
+
+        Focus.LOG_DAY -> HeroCard(
+            kicker = "TODAY'S DIET",
+            headline = if (state.nutrition.isCheatDay) {
+                "Cheat day. Damage control is the only thing asked."
             } else {
-                Text(
-                    if (training.completedToday) "LOGGED TODAY" else "RECOVERING",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Palette.TextSecondary
-                )
-            }
-            Text(
-                "~25 min · twice a week",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (due) Palette.EmberText else Palette.TextSecondary
-            )
-        }
+                "One tap if all three rules held."
+            },
+            body = motivation?.nutrition?.current
+                ?.takeIf { it > 0 }
+                ?.let { "$it-day chain. This is what keeps it." },
+            action = if (state.nutrition.isCheatDay) "Open damage control" else "All three held",
+            onAction = {
+                if (state.nutrition.isCheatDay) onOpenPillar(Routes.NUTRITION) else onMarkDayClean()
+            },
+            secondary = if (state.nutrition.isCheatDay) null else "Something slipped — open it",
+            onSecondary = { onOpenPillar(Routes.NUTRITION) }
+        )
 
-        if (due && nextWeights.isNotEmpty()) {
-            Spacer(Modifier.height(14.dp))
-            nextWeights.take(3).forEach { next ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 3.5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        next.exerciseName,
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(next.weightKg.kgDisplay(), style = NumeralSmall)
-                    if (next.gainKg > 0.01) {
-                        Text(
-                            "+${next.gainKg.trimmed()}",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Palette.Gain,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(Palette.GainSurface)
-                                .padding(horizontal = 7.dp, vertical = 3.dp)
-                        )
-                    }
-                }
-            }
+        Focus.CLEAR -> ClearCard(state, motivation, nextWeights)
+    }
+}
+
+/** Your own plan played back, or the shift that has to end first, or the plain ask. */
+private fun intention(onShift: Boolean, shiftEndMinutes: Int?, trainingIntention: String?): String =
+    when {
+        onShift && shiftEndMinutes != null -> "Train after ${shiftEndMinutes.asTimeOfDay()}."
+        trainingIntention != null -> "You said you'd $trainingIntention."
+        else -> "Train, then you're done for the day."
+    }
+
+@Composable
+private fun HeroCard(
+    kicker: String,
+    headline: String,
+    body: String?,
+    action: String?,
+    onAction: () -> Unit,
+    secondary: String?,
+    onSecondary: () -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(Palette.EmberSurface)
+            .border(1.dp, Palette.EmberLine, RoundedCornerShape(18.dp))
+            .padding(20.dp)
+    ) {
+        Text(kicker, style = MaterialTheme.typography.labelSmall, color = Palette.EmberText)
+        Spacer(Modifier.height(8.dp))
+        Text(headline, style = MaterialTheme.typography.headlineSmall)
+
+        if (body != null) {
             Spacer(Modifier.height(10.dp))
-            Text(
-                "You earned these last session. They're yours to claim.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Palette.EmberText
-            )
-        } else if (!due) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                training.nextSessionDate
-                    ?.let { "Next session ${it.displayShort()} — ${training.restDaysBetween} rest days." }
-                    ?: "No sessions logged yet. The first one sets your baseline.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Palette.TextSecondary
-            )
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = Palette.EmberText)
         }
 
-        Spacer(Modifier.height(14.dp))
-        Button(
-            onClick = { onOpenPillar(Routes.SESSION) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (due) Palette.Ember else Palette.SurfaceRaised,
-                contentColor = if (due) Palette.EmberInk else Palette.TextPrimary
-            )
-        ) {
-            Text(
-                if (due) "Start session" else "Train anyway",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+        if (action != null) {
+            Spacer(Modifier.height(18.dp))
+            Button(
+                onClick = onAction,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp)
+            ) {
+                Text(action, style = MaterialTheme.typography.labelLarge)
+            }
         }
 
-        if (due) {
-            // Shrinking the first step is the most reliable way past "not today" — almost
-            // nobody stops after the warm-up.
+        if (secondary != null) {
             TextButton(
-                onClick = { onOpenPillar(Routes.SESSION) },
+                onClick = onSecondary,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    "Not feeling it? Just do the warm-up — 3 min",
-                    style = MaterialTheme.typography.bodyMedium,
+                    secondary,
+                    style = MaterialTheme.typography.bodySmall,
                     color = Palette.EmberText
                 )
             }
@@ -353,311 +233,196 @@ private fun TrainingHero(
     }
 }
 
-/** Anticipation, not an afterthought: knowing it is coming is what makes today survivable. */
+/**
+ * Nothing is asking. The screen says so plainly rather than inventing a task — a tracker that
+ * always has something for you is one you stop believing.
+ */
 @Composable
-private fun CheatDayStrip(motivation: MotivationState) {
-    Row(
+private fun ClearCard(
+    state: DashboardState,
+    motivation: MotivationState?,
+    nextWeights: List<NextWeight>
+) {
+    val daysUntil = state.training.nextSessionDate
+        ?.let { java.time.temporal.ChronoUnit.DAYS.between(state.date, it) }
+
+    Column(
         Modifier
-            .padding(horizontal = 20.dp, vertical = 12.dp)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Palette.SurfaceRaised)
-            .padding(horizontal = 12.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(9.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(Palette.Surface)
+            .padding(20.dp)
     ) {
-        Box(
-            Modifier
-                .size(8.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(Palette.Nutrition)
-        )
+        Text("NOTHING LEFT", style = MaterialTheme.typography.labelSmall, color = Palette.TextTertiary)
+        Spacer(Modifier.height(8.dp))
         Text(
-            when (motivation.cheatDayIn) {
-                0 -> "Cheat day is today. Damage control is in Nutrition — no guilt required."
-                1 -> "Cheat day is ${motivation.cheatDayName} — tomorrow. Hold until then."
-                else -> "Cheat day is ${motivation.cheatDayName} — ${motivation.cheatDayIn} days. Hold until then."
+            if (state.training.completedToday) "Session logged. Day's done." else "Day's done.",
+            style = MaterialTheme.typography.headlineSmall
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            when {
+                daysUntil != null && daysUntil > 0 && nextWeights.isNotEmpty() -> {
+                    val lead = nextWeights.first()
+                    "Next session in $daysUntil days — ${lead.exerciseName.lowercase()} " +
+                        "${lead.weightKg.kgDisplay()} is waiting."
+                }
+                daysUntil != null && daysUntil > 0 -> "Next session in $daysUntil days."
+                motivation != null && motivation.cheatDayIn > 0 ->
+                    "${motivation.cheatDayName} in ${motivation.cheatDayIn} days."
+                else -> "Nothing scheduled."
             },
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = Palette.TextSecondary
         )
     }
 }
 
-private fun LazyListScope.pillarRows(
+// ---------------------------------------------------------------------------------------
+// The dots: five pillars in one strip, where five rows with five buttons used to be.
+// ---------------------------------------------------------------------------------------
+
+private data class PillarDot(
+    val pillar: Pillar,
+    val label: String,
+    val done: Boolean,
+    val onTap: () -> Unit
+)
+
+@Composable
+private fun PillarDots(
     state: DashboardState,
-    motivation: MotivationState?,
+    onOpenPillar: (String) -> Unit,
     onMarkDayClean: () -> Unit,
-    onOpenPillar: (String) -> Unit
+    onTakeCreatine: () -> Unit
 ) {
     val settings = state.settings
+    val creatine = state.creatine
+    val nutritionDone = state.nutrition.dayLogged
 
-    if (settings.isEnabled(Pillar.NUTRITION)) {
-        item {
-            val chain = motivation?.nutrition?.current ?: 0
-            val clean = state.nutrition.rulesMet == 3
-            ActionRow(
-                colour = Palette.Nutrition,
-                title = "Nutrition",
-                detail = when {
-                    state.nutrition.isCheatDay -> "Cheat day — damage control open"
-                    clean -> "All three rules held today"
-                    chain > 0 -> "$chain-day chain — one tap keeps it"
-                    else -> "Log today to start a chain"
-                },
-                detailColour = if (!clean && chain > 0) Palette.Nutrition else Palette.TextSecondary,
-                action = {
-                    if (!clean && !state.nutrition.isCheatDay) {
-                        // The compliant day costs one tap, right here.
-                        OutlinedButton(
-                            onClick = onMarkDayClean,
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.height(44.dp)
-                        ) {
-                            Text("All three held", style = MaterialTheme.typography.bodySmall)
-                        }
-                    } else {
-                        OutlinedButton(
-                            onClick = { onOpenPillar(Routes.NUTRITION) },
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.height(44.dp)
-                        ) {
-                            Text("Open", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-            )
-        }
-    }
+    val dots = listOfNotNull(
+        PillarDot(
+            pillar = Pillar.STRETCHES,
+            label = "Stretch",
+            done = state.stretches.deskResetCountToday > 0 || state.stretches.inlineDoneThisSession,
+            onTap = { onOpenPillar(Routes.deskReset(false)) }
+        ).takeIf { settings.isEnabled(Pillar.STRETCHES) },
 
-    if (settings.isEnabled(Pillar.STRETCHES)) {
-        item {
-            ActionRow(
-                colour = Palette.Stretches,
-                title = "Desk reset",
-                detail = if (state.stretches.deskResetCountToday > 0) {
-                    "${state.stretches.deskResetCountToday} done today"
-                } else {
-                    "Nothing yet today — five minutes resets the hips"
-                },
-                action = {
-                    OutlinedButton(
-                        onClick = { onOpenPillar(Routes.deskReset(false)) },
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.height(44.dp)
-                    ) {
-                        Text("Start 5 min", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            )
-        }
-    }
+        PillarDot(
+            pillar = Pillar.NUTRITION,
+            label = "Food",
+            done = nutritionDone,
+            // The compliant day costs one tap and never leaves this screen.
+            onTap = { if (nutritionDone) onOpenPillar(Routes.NUTRITION) else onMarkDayClean() }
+        ).takeIf { settings.isEnabled(Pillar.NUTRITION) },
 
-    if (settings.isEnabled(Pillar.SLEEP)) {
-        item {
-            ActionRow(
-                colour = Palette.Sleep,
-                title = "Sleep",
-                detail = if (state.sleep.logged) {
-                    "Last night ${state.sleep.checksPassed} of 5 checks"
-                } else {
-                    "Night of ${state.sleep.nightDate.displayShort()} not logged"
-                },
-                action = {
-                    OutlinedButton(
-                        onClick = { onOpenPillar(Routes.SLEEP) },
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.height(44.dp)
-                    ) {
-                        Text(if (state.sleep.logged) "Edit" else "Log", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            )
-        }
-    }
+        PillarDot(
+            pillar = Pillar.SLEEP,
+            label = "Sleep",
+            done = state.sleep.logged,
+            onTap = { onOpenPillar(Routes.SLEEP) }
+        ).takeIf { settings.isEnabled(Pillar.SLEEP) },
 
-    if (settings.isEnabled(Pillar.CREATINE)) {
-        item {
-            val creatine = state.creatine
-            ActionRow(
-                colour = Palette.Creatine,
-                title = "Creatine",
-                detail = when {
-                    creatine.cycleDay == null && creatine.cycleComplete -> "Cycle complete"
-                    creatine.cycleDay == null -> "No cycle running"
-                    creatine.morningTaken && creatine.eveningTaken ->
-                        "Day ${creatine.cycleDay} of ${CreatineCycle.CYCLE_LENGTH_DAYS} — both taken"
-                    else ->
-                        "Day ${creatine.cycleDay} of ${CreatineCycle.CYCLE_LENGTH_DAYS} — " +
-                            (if (creatine.morningTaken) "evening left" else "morning left")
-                },
-                action = {
-                    OutlinedButton(
-                        onClick = { onOpenPillar(Routes.CREATINE) },
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.height(44.dp)
-                    ) {
-                        Text("Open", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            )
-        }
-    }
+        PillarDot(
+            pillar = Pillar.COLD,
+            label = "Cold",
+            done = state.cold.countThisWeek > 0,
+            onTap = { onOpenPillar(Routes.COLD) }
+        ).takeIf { settings.isEnabled(Pillar.COLD) },
 
-    if (settings.isEnabled(Pillar.COLD)) {
-        item {
-            ActionRow(
-                colour = Palette.Cold,
-                title = "Cold exposure",
-                detail = "${state.cold.countThisWeek} this week",
-                action = {
-                    OutlinedButton(
-                        onClick = { onOpenPillar(Routes.COLD) },
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.height(44.dp)
-                    ) {
-                        Text("Log", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            )
-        }
-    }
-}
+        PillarDot(
+            pillar = Pillar.CREATINE,
+            label = "Creatine",
+            done = creatine.morningTaken && creatine.eveningTaken,
+            // A dose is a yes/no, so it logs in place; only a missing cycle needs the screen.
+            onTap = {
+                if (creatine.cycleDay == null) onOpenPillar(Routes.CREATINE) else onTakeCreatine()
+            }
+        ).takeIf { settings.isEnabled(Pillar.CREATINE) }
+    )
 
-private fun Double.trimmed(): String =
-    if (this % 1.0 == 0.0) "${this.toInt()}" else "%.1f".format(this)
+    if (dots.isEmpty()) return
 
-/**
- * One half of a pairing has already landed today, so the other half is now the smallest
- * useful thing in the app. It only ever appears in that state — a combo already complete
- * says nothing, and one with neither half landed would be noise.
- */
-@Composable
-private fun SynergyNudgeStrip(state: SynergyState) {
-    val synergy = state.synergy
-
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(Palette.EmberSurface)
-            .border(1.dp, Palette.EmberLine, RoundedCornerShape(14.dp))
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                "ONE HALF IN — ${synergy.name.uppercase()}",
-                style = MaterialTheme.typography.labelSmall,
-                color = Palette.EmberText
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                synergy.prompt,
-                style = MaterialTheme.typography.bodyLarge,
-                color = Palette.TextPrimary
-            )
-        }
-        Row(Modifier.padding(start = 12.dp)) {
-            synergy.pillars.forEach { pillar ->
-                Box(
-                    Modifier
-                        .size(8.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(Palette.of(pillar))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+        dots.forEach { dot ->
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = dot.onTap)
+                    .padding(vertical = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Dot(colour = Palette.of(dot.pillar), filled = dot.done)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    dot.label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (dot.done) Palette.TextSecondary else Palette.TextTertiary
                 )
-                Spacer(Modifier.size(4.dp))
             }
         }
     }
+
+    val left = dots.count { !it.done }
+    Spacer(Modifier.height(6.dp))
+    Text(
+        when (left) {
+            0 -> "All five logged."
+            1 -> "One left — tap to log it."
+            else -> "$left left — tap to log."
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = Palette.TextTertiary,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
-/**
- * The line that is always true.
- *
- * Every other block on this screen is conditional on something having happened, which meant
- * that on a quiet day the app showed no sign of the progression it is built around. This one
- * renders in every state, including an app opened for the first time: there is always a run
- * number, always a chain (even at zero), and always a next session.
- */
 @Composable
-private fun StatusStrip(
-    runStatus: RunStatus?,
-    motivation: MotivationState?,
-    training: TrainingToday
-) {
+private fun Dot(colour: Color, filled: Boolean) {
+    if (filled) {
+        Box(Modifier.size(14.dp).clip(RoundedCornerShape(999.dp)).background(colour))
+    } else {
+        Box(
+            Modifier
+                .size(14.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .border(1.5.dp, Palette.DotEmpty, RoundedCornerShape(999.dp))
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// Standing: what the status strip, the chain pill and the adherence header all said,
+// in one line that never competes with the thing to do.
+// ---------------------------------------------------------------------------------------
+
+@Composable
+private fun StandingLine(runStatus: RunStatus?, motivation: MotivationState?) {
     val chain = motivation?.headline
 
-    Row(
-        Modifier
-            .padding(start = 20.dp, end = 20.dp, top = 14.dp)
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(Palette.SurfaceRaised)
-            .padding(vertical = 14.dp, horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        StatusCell(
-            value = runStatus?.let { "${it.runNumber}" } ?: "—",
-            label = when {
-                runStatus == null -> "run"
-                !runStatus.started -> "run · not started"
-                runStatus.sessionsThisRun == 0 -> "run · first session"
-                else -> "run · session ${runStatus.sessionsThisRun}"
-            },
-            colour = Palette.Ember,
-            modifier = Modifier.weight(1.1f)
-        )
-
-        StatusDivider()
-
-        StatusCell(
-            value = "${chain?.current ?: 0}",
-            label = when {
-                chain == null -> "day chain"
-                chain.current == 0 -> "day chain · start one"
-                chain.passesLeft > 0 -> "day chain · ${chain.passesLeft} pass left"
-                else -> "day chain · no pass left"
-            },
-            colour = if ((chain?.current ?: 0) > 0) Palette.TextPrimary else Palette.TextTertiary,
-            modifier = Modifier.weight(1f)
-        )
-
-        StatusDivider()
-
-        StatusCell(
-            value = if (training.dueToday) "NOW" else "${training.restDaysBetween}",
-            label = if (training.dueToday) "session due" else "days rest between",
-            colour = if (training.dueToday) Palette.Ember else Palette.TextPrimary,
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
-private fun StatusCell(
-    value: String,
-    label: String,
-    colour: Color,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier) {
-        Text(value, style = NumeralMedium, color = colour)
-        Text(
-            label,
-            style = MaterialTheme.typography.bodySmall,
-            color = Palette.TextSecondary
-        )
-    }
-}
-
-@Composable
-private fun StatusDivider() {
-    Box(
-        Modifier
-            .padding(horizontal = 12.dp)
-            .size(width = 1.dp, height = 34.dp)
-            .background(Palette.LineStrong)
+    Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.Line))
+    Spacer(Modifier.height(14.dp))
+    Text(
+        buildString {
+            if (runStatus != null) {
+                append("Run ${runStatus.runNumber}")
+                if (runStatus.started && runStatus.sessionsThisRun > 0) {
+                    append(" · session ${runStatus.sessionsThisRun}")
+                } else if (!runStatus.started) {
+                    append(" · not started")
+                }
+            }
+            if (chain != null) {
+                if (isNotEmpty()) append(" · ")
+                append("${chain.current}-day chain")
+                if (chain.current > 0 && chain.passesLeft > 0) append(", ${chain.passesLeft} pass left")
+            }
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = Palette.TextTertiary,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth()
     )
 }

@@ -12,6 +12,7 @@ import com.tom.fourhourbody.data.repo.TrainingRepository
 import com.tom.fourhourbody.domain.deck.CardKind
 import com.tom.fourhourbody.domain.deck.Deck
 import com.tom.fourhourbody.domain.deck.DeckBuilder
+import com.tom.fourhourbody.domain.adherence.PillarAdherence
 import com.tom.fourhourbody.domain.deck.DeckCard
 import com.tom.fourhourbody.domain.synergy.SynergyState
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,6 +46,14 @@ class DeckViewModel(
             logs = logs
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * Adherence, which used to sit under Today. It is review, not action, so it belongs on
+     * the screen you open when you want to look rather than do.
+     */
+    val adherence: StateFlow<List<PillarAdherence>> =
+        dashboardRepository.adherence(LocalDate.now(), windowDays)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** The book's own pairings, over the same window the pillar tiers read. */
     val synergies: StateFlow<List<SynergyState>> =
