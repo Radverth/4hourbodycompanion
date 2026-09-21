@@ -47,6 +47,7 @@ fun TrainingHomeScreen(
     val schedule by viewModel.schedule.collectAsStateWithLifecycle()
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
     val runs by viewModel.runs.collectAsStateWithLifecycle()
+    val runStatus by viewModel.runStatus.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -55,8 +56,16 @@ fun TrainingHomeScreen(
     ) {
         item { Text("Training", style = MaterialTheme.typography.headlineMedium) }
 
-        runs.firstOrNull()?.takeIf { !it.isComplete }?.let { open ->
-            item { CurrentRunStrip(open) }
+        item {
+            val open = runs.firstOrNull()?.takeIf { !it.isComplete }
+            when {
+                open != null -> CurrentRunStrip(open)
+                runStatus != null -> NotStartedRunStrip(
+                    runNumber = runStatus!!.runNumber,
+                    restDays = schedule?.restDaysBetween,
+                    onStartSession = onStartSession
+                )
+            }
         }
 
         item {
@@ -206,5 +215,56 @@ private fun FinishedRunRow(run: RunSummary) {
             )
         }
         Text("+${run.totalGainKg.kgDisplay()}", style = NumeralSmall, color = Palette.Ember)
+    }
+}
+
+/**
+ * No run is open. Rendering nothing here was the whole problem: the app is built around runs
+ * and, until one had been started and then stalled, it never said the word. A run that has
+ * not begun still has a number and still says what it is for.
+ */
+@Composable
+private fun NotStartedRunStrip(
+    runNumber: Int,
+    restDays: Int?,
+    onStartSession: () -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Palette.EmberSurface)
+            .border(1.dp, Palette.EmberLine, RoundedCornerShape(16.dp))
+            .padding(18.dp)
+    ) {
+        Text(
+            "NEXT RUN",
+            style = MaterialTheme.typography.labelSmall,
+            color = Palette.EmberText
+        )
+        Spacer(Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text("RUN $runNumber", style = NumeralMedium, color = Palette.Ember)
+            Text(
+                "  not started",
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextSecondary,
+                modifier = Modifier.padding(bottom = 3.dp)
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            restDays?.let {
+                "It opens on your next session and runs on $it days rest, closing when you " +
+                    "first miss a target by more than a rep. Every weight it earns is kept."
+            } ?: "It opens on your first session and closes when you first miss a target by " +
+                "more than a rep. Every weight it earns is kept.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Palette.EmberText
+        )
+        Spacer(Modifier.height(14.dp))
+        Button(onClick = onStartSession, modifier = Modifier.fillMaxWidth()) {
+            Text("Start run $runNumber")
+        }
     }
 }

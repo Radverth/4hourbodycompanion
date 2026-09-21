@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,6 +38,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tom.fourhourbody.data.entity.Pillar
 import com.tom.fourhourbody.data.repo.DashboardState
 import com.tom.fourhourbody.data.repo.MotivationState
+import com.tom.fourhourbody.data.repo.RunStatus
+import com.tom.fourhourbody.data.repo.TrainingToday
 import com.tom.fourhourbody.domain.creatine.CreatineCycle
 import com.tom.fourhourbody.domain.synergy.SynergyState
 import com.tom.fourhourbody.ui.common.ActionRow
@@ -46,6 +49,7 @@ import com.tom.fourhourbody.ui.common.LabelledProgress
 import com.tom.fourhourbody.ui.common.rememberContainer
 import com.tom.fourhourbody.ui.nav.Routes
 import com.tom.fourhourbody.ui.theme.NumeralSmall
+import com.tom.fourhourbody.ui.theme.NumeralMedium
 import com.tom.fourhourbody.ui.theme.Palette
 import com.tom.fourhourbody.util.asTimeOfDay
 import com.tom.fourhourbody.util.displayShort
@@ -66,6 +70,7 @@ fun DashboardScreen(onOpenPillar: (String) -> Unit) {
     val adherence by viewModel.adherence.collectAsStateWithLifecycle()
     val window by viewModel.window.collectAsStateWithLifecycle()
     val synergyNudge by viewModel.synergyNudge.collectAsStateWithLifecycle()
+    val runStatus by viewModel.runStatus.collectAsStateWithLifecycle()
 
     val current = state
 
@@ -102,6 +107,8 @@ fun DashboardScreen(onOpenPillar: (String) -> Unit) {
             item { Text("Loading…", Modifier.padding(20.dp)) }
             return@LazyColumn
         }
+
+        item { StatusStrip(runStatus, motivation, current.training) }
 
         item { IntentionStrip(current, motivation) }
 
@@ -564,4 +571,93 @@ private fun SynergyNudgeStrip(state: SynergyState) {
             }
         }
     }
+}
+
+/**
+ * The line that is always true.
+ *
+ * Every other block on this screen is conditional on something having happened, which meant
+ * that on a quiet day the app showed no sign of the progression it is built around. This one
+ * renders in every state, including an app opened for the first time: there is always a run
+ * number, always a chain (even at zero), and always a next session.
+ */
+@Composable
+private fun StatusStrip(
+    runStatus: RunStatus?,
+    motivation: MotivationState?,
+    training: TrainingToday
+) {
+    val chain = motivation?.headline
+
+    Row(
+        Modifier
+            .padding(start = 20.dp, end = 20.dp, top = 14.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Palette.SurfaceRaised)
+            .padding(vertical = 14.dp, horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        StatusCell(
+            value = runStatus?.let { "${it.runNumber}" } ?: "—",
+            label = when {
+                runStatus == null -> "run"
+                !runStatus.started -> "run · not started"
+                runStatus.sessionsThisRun == 0 -> "run · first session"
+                else -> "run · session ${runStatus.sessionsThisRun}"
+            },
+            colour = Palette.Ember,
+            modifier = Modifier.weight(1.1f)
+        )
+
+        StatusDivider()
+
+        StatusCell(
+            value = "${chain?.current ?: 0}",
+            label = when {
+                chain == null -> "day chain"
+                chain.current == 0 -> "day chain · start one"
+                chain.passesLeft > 0 -> "day chain · ${chain.passesLeft} pass left"
+                else -> "day chain · no pass left"
+            },
+            colour = if ((chain?.current ?: 0) > 0) Palette.TextPrimary else Palette.TextTertiary,
+            modifier = Modifier.weight(1f)
+        )
+
+        StatusDivider()
+
+        StatusCell(
+            value = if (training.dueToday) "NOW" else "${training.restDaysBetween}",
+            label = if (training.dueToday) "session due" else "days rest between",
+            colour = if (training.dueToday) Palette.Ember else Palette.TextPrimary,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun StatusCell(
+    value: String,
+    label: String,
+    colour: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier) {
+        Text(value, style = NumeralMedium, color = colour)
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = Palette.TextSecondary
+        )
+    }
+}
+
+@Composable
+private fun StatusDivider() {
+    Box(
+        Modifier
+            .padding(horizontal = 12.dp)
+            .size(width = 1.dp, height = 34.dp)
+            .background(Palette.LineStrong)
+    )
 }

@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.tom.fourhourbody.AppContainer
 import com.tom.fourhourbody.data.entity.ExerciseConfigEntity
 import com.tom.fourhourbody.data.entity.SessionEntity
+import com.tom.fourhourbody.data.repo.RunStatus
 import com.tom.fourhourbody.data.repo.TrainingRepository
 import com.tom.fourhourbody.data.repo.TrainingSchedule
 import com.tom.fourhourbody.domain.run.RunSummary
@@ -31,6 +32,10 @@ class TrainingViewModel(
     /** Every run, newest first. The first entry is the open one whenever a run is running. */
     val runs: StateFlow<List<RunSummary>> = trainingRepository.runHistory(LocalDate.now())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Always present, so the run panel renders before the first session as well as after. */
+    val runStatus: StateFlow<RunStatus?> = trainingRepository.runStatus()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val configs: StateFlow<List<ExerciseConfigEntity>> = trainingRepository.allConfigs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

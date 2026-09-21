@@ -72,9 +72,15 @@ data class ExercisePrompt(
     val suggestedWeightKg: Double?,
     val lastWeightKg: Double?,
     val lastReps: Int?,
+    /** Heaviest ever logged for this exercise — what a set has to beat to be a record. */
+    val bestEverKg: Double?,
     val position: Int,
     val total: Int
-)
+) {
+    /** A record is called while the weight is still on the bar, not in the summary. */
+    fun isRecord(weightKg: Double): Boolean =
+        bestEverKg != null && weightKg > bestEverKg + 0.01
+}
 
 class SessionViewModel(
     private val trainingRepository: TrainingRepository,
@@ -173,6 +179,7 @@ class SessionViewModel(
             suggestedWeightKg = trainingRepository.openingWeightFor(config),
             lastWeightKg = last?.weightKg,
             lastReps = last?.reps,
+            bestEverKg = trainingRepository.bestEverFor(config.exerciseName),
             position = index + 1,
             total = configs.size
         )

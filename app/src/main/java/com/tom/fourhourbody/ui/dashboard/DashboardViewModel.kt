@@ -12,6 +12,7 @@ import com.tom.fourhourbody.data.repo.MotivationRepository
 import com.tom.fourhourbody.data.repo.MotivationState
 import com.tom.fourhourbody.data.repo.NutritionRepository
 import com.tom.fourhourbody.data.repo.SettingsRepository
+import com.tom.fourhourbody.data.repo.RunStatus
 import com.tom.fourhourbody.data.repo.TrainingRepository
 import com.tom.fourhourbody.domain.SleepNight
 import com.tom.fourhourbody.domain.adherence.PillarAdherence
@@ -59,6 +60,10 @@ class DashboardViewModel(
     val adherence: StateFlow<List<PillarAdherence>> = _window
         .flatMapLatest { days -> dashboardRepository.adherence(today, days) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Always present, so the header never has to render nothing. */
+    val runStatus: StateFlow<RunStatus?> = trainingRepository.runStatus()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /**
      * The one pairing with a half still open today, if there is one. Deliberately not tied to
