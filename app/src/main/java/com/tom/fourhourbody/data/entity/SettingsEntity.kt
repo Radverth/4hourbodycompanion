@@ -1,5 +1,6 @@
 package com.tom.fourhourbody.data.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.time.DayOfWeek
@@ -54,6 +55,25 @@ data class SettingsEntity(
     val creatineMorningMinutes: Int = 7 * 60,
     val creatineEveningMinutes: Int = 22 * 60,
 
+    /**
+     * Implementation intentions — "I will do X after Y". Stating when and where roughly
+     * doubles follow-through, so the app asks once and then plays the answer back at the
+     * moment of decision rather than issuing a generic reminder.
+     */
+    val trainingIntention: String? = null,
+    val stretchesIntention: String? = null,
+    val nutritionIntention: String? = null,
+    val sleepIntention: String? = null,
+    val coldIntention: String? = null,
+    val creatineIntention: String? = null,
+
+    /**
+     * The cheat day is a scheduled release valve, so it is counted down to rather than
+     * stumbled into — anticipating it is what makes the other six days sustainable.
+     */
+    @ColumnInfo(defaultValue = "6")
+    val cheatDay: DayOfWeek = DayOfWeek.SATURDAY,
+
     /** One-time "locked position" form cue; dismissible, hence persisted. */
     val lockedPositionCueDismissed: Boolean = false,
 
@@ -79,4 +99,22 @@ data class SettingsEntity(
     }
 
     val enabledPillars: List<Pillar> get() = Pillar.entries.filter { isEnabled(it) }
+
+    fun intentionFor(pillar: Pillar): String? = when (pillar) {
+        Pillar.TRAINING -> trainingIntention
+        Pillar.STRETCHES -> stretchesIntention
+        Pillar.NUTRITION -> nutritionIntention
+        Pillar.SLEEP -> sleepIntention
+        Pillar.COLD -> coldIntention
+        Pillar.CREATINE -> creatineIntention
+    }?.takeIf { it.isNotBlank() }
+
+    fun withIntention(pillar: Pillar, intention: String?): SettingsEntity = when (pillar) {
+        Pillar.TRAINING -> copy(trainingIntention = intention)
+        Pillar.STRETCHES -> copy(stretchesIntention = intention)
+        Pillar.NUTRITION -> copy(nutritionIntention = intention)
+        Pillar.SLEEP -> copy(sleepIntention = intention)
+        Pillar.COLD -> copy(coldIntention = intention)
+        Pillar.CREATINE -> copy(creatineIntention = intention)
+    }
 }

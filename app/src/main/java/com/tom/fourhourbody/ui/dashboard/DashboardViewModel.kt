@@ -6,8 +6,14 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.tom.fourhourbody.AppContainer
+import com.tom.fourhourbody.data.entity.MealSlot
 import com.tom.fourhourbody.data.repo.DashboardRepository
 import com.tom.fourhourbody.data.repo.DashboardState
+import com.tom.fourhourbody.data.repo.MotivationRepository
+import com.tom.fourhourbody.data.repo.MotivationState
+import com.tom.fourhourbody.data.repo.NutritionRepository
+import com.tom.fourhourbody.data.repo.SettingsRepository
+import com.tom.fourhourbody.data.repo.TrainingRepository
 import com.tom.fourhourbody.domain.SleepNight
 import com.tom.fourhourbody.domain.adherence.PillarAdherence
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -17,11 +23,19 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
 
+/** What the hero card promises you for turning up. */
+data class NextWeight(val exerciseName: String, val weightKg: Double, val gainKg: Double)
+
 class DashboardViewModel(
-    dashboardRepository: DashboardRepository
+    dashboardRepository: DashboardRepository,
+    motivationRepository: MotivationRepository,
+    private val trainingRepository: TrainingRepository,
+    private val nutritionRepository: NutritionRepository,
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     private val today = LocalDate.now()
@@ -33,18 +47,80 @@ class DashboardViewModel(
     val state: StateFlow<DashboardState?> = dashboardRepository.today(today, nightDate)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    val motivation: StateFlow<MotivationState?> = motivationRepository.state(today)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private val _nextWeights = MutableStateFlow<List<NextWeight>>(emptyList())
+    val nextWeights: StateFlow<List<NextWeight>> = _nextWeights.asStateFlow()
+
+    private val _yesterdayMeals = MutableStateFlow<List<String>>(emptyList())
+
+    /** Non-null when there is a previous day worth copying forward in one tap. */
+    val repeatableMeals: StateFlow<List<String>> = _yesterdayMeals.asStateFlow()
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val adherence: StateFlow<List<PillarAdherence>> = _window
         .flatMapLatest { days -> dashboardRepository.adherence(today, days) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    init {
+        viewModelScope.launch { loadNextWeights() }
+        viewModelScope.launch { loadYesterdayMeals() }
+    }
+
+    /**
+     * The reward for last session, surfaced before this one starts. The progression rule
+     * already computes it; the app simply never showed it.
+     */
+    private suspend fun loadNextWeights() {
+        _nextWeights.value = trainingRepository.activeStrengthConfigs().mapNotNull { config ->
+            val last = trainingRepository.lastLogFor(config.exerciseName) ?: return@mapNotNull null
+            val next = trainingRepository.openingWeightFor(config) ?: return@mapNotNull null
+            NextWeight(
+                exerciseName = config.exerciseName,
+                weightKg = next,
+                gainKg = next - last.weightKg
+            )
+        }
+    }
+
+    /** Yesterday's meals, shown so a one-tap repeat is a confirmation, not a leap of faith. */
+    private suspend fun loadYesterdayMeals() {
+        val previous = nutritionRepository.dayOn(today.minusDays(1)) ?: return
+        val meals = nutritionRepository.mealsOn(previous.id)
+        _yesterdayMeals.value = MealSlot.entries.mapNotNull { slot ->
+            meals.firstOrNull { it.mealSlot == slot }?.let { meal ->
+                listOfNotNull(meal.proteinTag, meal.legumeTag, meal.vegTag)
+                    .filter { it.isNotBlank() }
+                    .joinToString(" · ")
+                    .takeIf { it.isNotBlank() }
+            }
+        }
+    }
+
     fun setWindow(days: Int) {
         _window.value = days
     }
 
+    /** One tap logs the whole day the way Rule 2 says you already eat it. */
+    fun repeatYesterday() {
+        viewModelScope.launch {
+            val mode = settingsRepository.current().dietMode
+            nutritionRepository.copyDayForward(from = today.minusDays(1), to = today, defaultMode = mode)
+        }
+    }
+
     companion object {
         fun factory(container: AppContainer): ViewModelProvider.Factory = viewModelFactory {
-            initializer { DashboardViewModel(container.dashboardRepository) }
+            initializer {
+                DashboardViewModel(
+                    container.dashboardRepository,
+                    container.motivationRepository,
+                    container.trainingRepository,
+                    container.nutritionRepository,
+                    container.settingsRepository
+                )
+            }
         }
     }
 }

@@ -34,6 +34,9 @@ interface NutritionDao {
     @Query("SELECT * FROM meal_logs WHERE dietDayId = :dietDayId ORDER BY mealSlot ASC, id ASC")
     fun observeMeals(dietDayId: Long): Flow<List<MealLogEntity>>
 
+    @Query("SELECT * FROM meal_logs WHERE dietDayId = :dietDayId ORDER BY mealSlot ASC, id ASC")
+    suspend fun getMeals(dietDayId: Long): List<MealLogEntity>
+
     @Upsert
     suspend fun upsertDamageControl(log: DamageControlLogEntity): Long
 
