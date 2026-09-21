@@ -126,32 +126,6 @@ fun SwitchRow(
 }
 
 @Composable
-fun LabelledProgress(
-    label: String,
-    detail: String,
-    percent: Int,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label, style = MaterialTheme.typography.bodyLarge)
-            Text("$percent%", style = MaterialTheme.typography.titleMedium)
-        }
-        Spacer(Modifier.height(6.dp))
-        LinearProgressIndicator(
-            progress = { percent / 100f },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            detail,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
 fun NumberField(
     label: String,
     value: String,

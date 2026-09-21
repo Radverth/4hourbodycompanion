@@ -22,6 +22,20 @@ fun MoreScreen(onOpen: (String) -> Unit) {
         item { Text("More", style = MaterialTheme.typography.headlineMedium) }
         item {
             SectionCard(
+                title = "Static stretches",
+                subtitle = "Desk reset, rest-day mobility and the routine setup.",
+                onClick = { onOpen(Routes.STRETCHES) }
+            )
+        }
+        item {
+            SectionCard(
+                title = "Nutrition",
+                subtitle = "Slow-carb rules, cheat day and damage control.",
+                onClick = { onOpen(Routes.NUTRITION) }
+            )
+        }
+        item {
+            SectionCard(
                 title = "Sleep",
                 subtitle = "Nightly checklist.",
                 onClick = { onOpen(Routes.SLEEP) }
