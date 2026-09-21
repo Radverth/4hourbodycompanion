@@ -32,6 +32,7 @@ import com.tom.fourhourbody.data.reference.ReferenceDoc
 import com.tom.fourhourbody.ui.cold.ColdScreen
 import com.tom.fourhourbody.ui.creatine.CreatineScreen
 import com.tom.fourhourbody.ui.dashboard.DashboardScreen
+import com.tom.fourhourbody.ui.deck.DeckScreen
 import com.tom.fourhourbody.ui.more.MoreScreen
 import com.tom.fourhourbody.ui.nav.Routes
 import com.tom.fourhourbody.ui.nutrition.NutritionScreen
@@ -115,7 +116,8 @@ fun AppRoot(pendingRoute: String?, onRouteConsumed: () -> Unit) {
                 TrainingHomeScreen(
                     onStartSession = { navController.navigate(Routes.SESSION) },
                     onOpenHistory = { navController.navigate(Routes.SESSION_HISTORY) },
-                    onOpenExercises = { navController.navigate(Routes.EXERCISE_CONFIG) }
+                    onOpenExercises = { navController.navigate(Routes.EXERCISE_CONFIG) },
+                    onOpenDeck = { navController.navigate(Routes.DECK) }
                 )
             }
             composable(Routes.SESSION) {
@@ -179,6 +181,7 @@ fun AppRoot(pendingRoute: String?, onRouteConsumed: () -> Unit) {
             composable(Routes.SLEEP) { SleepScreen() }
             composable(Routes.COLD) { ColdScreen() }
             composable(Routes.CREATINE) { CreatineScreen() }
+            composable(Routes.DECK) { DeckScreen() }
             composable(Routes.PROGRESS) { ProgressScreen() }
 
             composable(Routes.MORE) {
