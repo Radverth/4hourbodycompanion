@@ -47,6 +47,42 @@ class NutritionRepository(private val dao: NutritionDao) {
         }
     }
 
+    suspend fun dayOn(date: LocalDate): DietDayLogEntity? = dao.getDay(date)
+
+    suspend fun mealsOn(dietDayId: Long): List<MealLogEntity> = dao.getMeals(dietDayId)
+
+    /**
+     * Copies a previous day's meals and rule ticks forward. Slow-Carb Rule 2 is "eat the same
+     * few meals over and over", so repeating a day is the normal case and should cost one tap;
+     * typing it out again is what stops a food log getting filled in.
+     *
+     * The cheat-day flag is deliberately not copied — that is always a deliberate choice.
+     */
+    suspend fun copyDayForward(from: LocalDate, to: LocalDate, defaultMode: DietMode): Boolean {
+        val previous = dao.getDay(from) ?: return false
+        val target = ensureDay(to, defaultMode)
+
+        dao.upsertDay(
+            target.copy(
+                mode = previous.mode,
+                avoidedWhiteCarbs = previous.avoidedWhiteCarbs,
+                noLiquidCalories = previous.noLiquidCalories,
+                noFruit = previous.noFruit
+            )
+        )
+
+        val existing = dao.getMeals(target.id).associateBy { it.mealSlot }
+        dao.getMeals(previous.id).forEach { meal ->
+            dao.upsertMeal(
+                meal.copy(
+                    id = existing[meal.mealSlot]?.id ?: 0,
+                    dietDayId = target.id
+                )
+            )
+        }
+        return true
+    }
+
     suspend fun upsertMeal(meal: MealLogEntity) = dao.upsertMeal(meal)
 
     suspend fun deleteMeal(meal: MealLogEntity) = dao.deleteMeal(meal)

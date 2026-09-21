@@ -7,6 +7,7 @@ import com.tom.fourhourbody.data.repo.ColdRepository
 import com.tom.fourhourbody.data.repo.CreatineRepository
 import com.tom.fourhourbody.data.repo.DashboardRepository
 import com.tom.fourhourbody.data.repo.MeasurementRepository
+import com.tom.fourhourbody.data.repo.MotivationRepository
 import com.tom.fourhourbody.data.repo.NutritionRepository
 import com.tom.fourhourbody.data.repo.SettingsRepository
 import com.tom.fourhourbody.data.repo.SleepRepository
@@ -33,6 +34,15 @@ class AppContainer(private val appContext: Context) {
     val creatineRepository by lazy { CreatineRepository(database.creatineDao()) }
     val measurementRepository by lazy { MeasurementRepository(database.measurementDao()) }
     val referenceRepository by lazy { ReferenceRepository(appContext) }
+
+    val motivationRepository by lazy {
+        MotivationRepository(
+            settingsRepository = settingsRepository,
+            nutritionRepository = nutritionRepository,
+            sleepRepository = sleepRepository,
+            creatineRepository = creatineRepository
+        )
+    }
 
     val dashboardRepository by lazy {
         DashboardRepository(
