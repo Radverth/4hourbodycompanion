@@ -37,6 +37,7 @@ import com.tom.fourhourbody.domain.deck.DeckCard
 import com.tom.fourhourbody.domain.synergy.SynergyState
 import com.tom.fourhourbody.ui.common.rememberContainer
 import com.tom.fourhourbody.ui.theme.NumeralLarge
+import com.tom.fourhourbody.ui.theme.NumeralSmall
 import com.tom.fourhourbody.ui.theme.Palette
 import com.tom.fourhourbody.util.kgDisplay
 
