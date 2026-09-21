@@ -61,7 +61,6 @@ fun DashboardScreen(onOpenPillar: (String) -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val motivation by viewModel.motivation.collectAsStateWithLifecycle()
     val nextWeights by viewModel.nextWeights.collectAsStateWithLifecycle()
-    val repeatable by viewModel.repeatableMeals.collectAsStateWithLifecycle()
     val adherence by viewModel.adherence.collectAsStateWithLifecycle()
     val window by viewModel.window.collectAsStateWithLifecycle()
 
@@ -113,7 +112,7 @@ fun DashboardScreen(onOpenPillar: (String) -> Unit) {
 
         item { Spacer(Modifier.height(12.dp)) }
 
-        pillarRows(current, motivation, repeatable, viewModel::repeatYesterday, onOpenPillar)
+        pillarRows(current, motivation, viewModel::markDayClean, onOpenPillar)
 
         item {
             Spacer(Modifier.height(20.dp))
@@ -368,8 +367,7 @@ private fun CheatDayStrip(motivation: MotivationState) {
 private fun LazyListScope.pillarRows(
     state: DashboardState,
     motivation: MotivationState?,
-    repeatableMeals: List<String>,
-    onRepeatYesterday: () -> Unit,
+    onMarkDayClean: () -> Unit,
     onOpenPillar: (String) -> Unit
 ) {
     val settings = state.settings
@@ -377,25 +375,26 @@ private fun LazyListScope.pillarRows(
     if (settings.isEnabled(Pillar.NUTRITION)) {
         item {
             val chain = motivation?.nutrition?.current ?: 0
-            val logged = state.nutrition.dayLogged
+            val clean = state.nutrition.rulesMet == 3
             ActionRow(
                 colour = Palette.Nutrition,
                 title = "Nutrition",
                 detail = when {
-                    logged && state.nutrition.isCheatDay -> "Cheat day logged — damage control open"
-                    logged -> "Logged — ${state.nutrition.rulesMet}/3 rules held"
+                    state.nutrition.isCheatDay -> "Cheat day — damage control open"
+                    clean -> "All three rules held today"
                     chain > 0 -> "$chain-day chain — one tap keeps it"
                     else -> "Log today to start a chain"
                 },
-                detailColour = if (!logged && chain > 0) Palette.Nutrition else Palette.TextSecondary,
+                detailColour = if (!clean && chain > 0) Palette.Nutrition else Palette.TextSecondary,
                 action = {
-                    if (!logged && repeatableMeals.isNotEmpty()) {
+                    if (!clean && !state.nutrition.isCheatDay) {
+                        // The compliant day costs one tap, right here.
                         OutlinedButton(
-                            onClick = onRepeatYesterday,
+                            onClick = onMarkDayClean,
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.height(44.dp)
                         ) {
-                            Text("Same as yesterday", style = MaterialTheme.typography.bodySmall)
+                            Text("All three held", style = MaterialTheme.typography.bodySmall)
                         }
                     } else {
                         OutlinedButton(

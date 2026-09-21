@@ -36,4 +36,19 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
+/**
+ * Drops meal tagging. The calorie side of eating is handled by a dedicated tracker, so
+ * logging protein/legume/veg tags here was duplicate data entry; what this app uniquely
+ * answers is rule compliance, which lives on diet_day_logs and is untouched.
+ *
+ * This drops a table deliberately, which is not the same thing as a destructive fallback:
+ * the feature is gone, so the rows have no reader. Every other table, including the diet
+ * days the streaks are built from, is preserved.
+ */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("DROP TABLE IF EXISTS meal_logs")
+    }
+}
+
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)

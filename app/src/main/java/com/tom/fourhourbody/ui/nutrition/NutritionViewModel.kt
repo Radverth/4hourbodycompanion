@@ -9,8 +9,6 @@ import com.tom.fourhourbody.AppContainer
 import com.tom.fourhourbody.data.entity.DamageControlLogEntity
 import com.tom.fourhourbody.data.entity.DietDayLogEntity
 import com.tom.fourhourbody.data.entity.DietMode
-import com.tom.fourhourbody.data.entity.MealLogEntity
-import com.tom.fourhourbody.data.entity.MealSlot
 import com.tom.fourhourbody.data.repo.NutritionRepository
 import com.tom.fourhourbody.data.repo.SettingsRepository
 import com.tom.fourhourbody.data.repo.TrainingRepository
@@ -29,15 +27,15 @@ import java.time.LocalDate
 data class NutritionUiState(
     val date: LocalDate,
     val day: DietDayLogEntity?,
-    val meals: List<MealLogEntity>,
     val damageControl: DamageControlLogEntity?,
     val defaultMode: DietMode,
     val isTrainingDay: Boolean
 ) {
     val mode: DietMode get() = day?.mode ?: defaultMode
 
-    /** The rice tag only exists in Hybrid mode, and only on a training day. */
-    val riceAvailable: Boolean get() = mode == DietMode.HYBRID && isTrainingDay
+    /** Every rule held, so the one-tap button has nothing left to do. */
+    val allRulesHeld: Boolean
+        get() = day?.let { it.avoidedWhiteCarbs && it.noLiquidCalories && it.noFruit } == true
 }
 
 class NutritionViewModel(
@@ -49,15 +47,12 @@ class NutritionViewModel(
     private val today = LocalDate.now()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val dayDetails: Flow<Triple<DietDayLogEntity?, List<MealLogEntity>, DamageControlLogEntity?>> =
+    private val dayDetails: Flow<Pair<DietDayLogEntity?, DamageControlLogEntity?>> =
         nutritionRepository.observeDay(today).flatMapLatest { day ->
             if (day == null) {
-                flowOf(Triple(null, emptyList(), null))
+                flowOf(null to null)
             } else {
-                combine(
-                    nutritionRepository.observeMeals(day.id),
-                    nutritionRepository.observeDamageControl(day.id)
-                ) { meals, damage -> Triple(day, meals, damage) }
+                nutritionRepository.observeDamageControl(day.id).map { damage -> day to damage }
             }
         }
 
@@ -70,11 +65,10 @@ class NutritionViewModel(
         dayDetails,
         settingsRepository.settings,
         trainingDay
-    ) { (day, meals, damage), settings, isTrainingDay ->
+    ) { (day, damage), settings, isTrainingDay ->
         NutritionUiState(
             date = today,
             day = day,
-            meals = meals,
             damageControl = damage,
             defaultMode = settings.dietMode,
             isTrainingDay = isTrainingDay
@@ -82,7 +76,7 @@ class NutritionViewModel(
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
-        NutritionUiState(today, null, emptyList(), null, DietMode.SLOW_CARB, false)
+        NutritionUiState(today, null, null, DietMode.SLOW_CARB, false)
     )
 
     val referenceMode: StateFlow<DietMode> = settingsRepository.settings
@@ -110,12 +104,10 @@ class NutritionViewModel(
         }
     }
 
-    fun updateMeal(slot: MealSlot, transform: (MealLogEntity) -> MealLogEntity) {
+    /** One tap for the day that went to plan. */
+    fun markDayClean() {
         viewModelScope.launch {
-            val day = nutritionRepository.ensureDay(today, defaultMode())
-            val existing = state.value.meals.firstOrNull { it.mealSlot == slot }
-                ?: MealLogEntity(dietDayId = day.id, mealSlot = slot)
-            nutritionRepository.upsertMeal(transform(existing))
+            nutritionRepository.markDayClean(today, defaultMode())
         }
     }
 

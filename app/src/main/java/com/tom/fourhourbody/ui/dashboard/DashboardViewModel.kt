@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.tom.fourhourbody.AppContainer
-import com.tom.fourhourbody.data.entity.MealSlot
 import com.tom.fourhourbody.data.repo.DashboardRepository
 import com.tom.fourhourbody.data.repo.DashboardState
 import com.tom.fourhourbody.data.repo.MotivationRepository
@@ -53,11 +52,6 @@ class DashboardViewModel(
     private val _nextWeights = MutableStateFlow<List<NextWeight>>(emptyList())
     val nextWeights: StateFlow<List<NextWeight>> = _nextWeights.asStateFlow()
 
-    private val _yesterdayMeals = MutableStateFlow<List<String>>(emptyList())
-
-    /** Non-null when there is a previous day worth copying forward in one tap. */
-    val repeatableMeals: StateFlow<List<String>> = _yesterdayMeals.asStateFlow()
-
     @OptIn(ExperimentalCoroutinesApi::class)
     val adherence: StateFlow<List<PillarAdherence>> = _window
         .flatMapLatest { days -> dashboardRepository.adherence(today, days) }
@@ -65,7 +59,6 @@ class DashboardViewModel(
 
     init {
         viewModelScope.launch { loadNextWeights() }
-        viewModelScope.launch { loadYesterdayMeals() }
     }
 
     /**
@@ -84,29 +77,14 @@ class DashboardViewModel(
         }
     }
 
-    /** Yesterday's meals, shown so a one-tap repeat is a confirmation, not a leap of faith. */
-    private suspend fun loadYesterdayMeals() {
-        val previous = nutritionRepository.dayOn(today.minusDays(1)) ?: return
-        val meals = nutritionRepository.mealsOn(previous.id)
-        _yesterdayMeals.value = MealSlot.entries.mapNotNull { slot ->
-            meals.firstOrNull { it.mealSlot == slot }?.let { meal ->
-                listOfNotNull(meal.proteinTag, meal.legumeTag, meal.vegTag)
-                    .filter { it.isNotBlank() }
-                    .joinToString(" · ")
-                    .takeIf { it.isNotBlank() }
-            }
-        }
-    }
-
     fun setWindow(days: Int) {
         _window.value = days
     }
 
-    /** One tap logs the whole day the way Rule 2 says you already eat it. */
-    fun repeatYesterday() {
+    /** One tap for a day that went to plan, without leaving the dashboard. */
+    fun markDayClean() {
         viewModelScope.launch {
-            val mode = settingsRepository.current().dietMode
-            nutritionRepository.copyDayForward(from = today.minusDays(1), to = today, defaultMode = mode)
+            nutritionRepository.markDayClean(today, settingsRepository.current().dietMode)
         }
     }
 

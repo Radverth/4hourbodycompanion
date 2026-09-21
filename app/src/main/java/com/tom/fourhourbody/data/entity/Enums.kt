@@ -12,8 +12,6 @@ enum class Pillar(val label: String) {
 
 enum class DietMode { SLOW_CARB, HYBRID }
 
-enum class MealSlot { BREAKFAST, LUNCH, DINNER }
-
 /** Which of the three book-sourced stretch routines a config row belongs to. */
 enum class StretchRoutine(val label: String) {
     PRE_KETTLEBELL("Pre-kettlebell"),

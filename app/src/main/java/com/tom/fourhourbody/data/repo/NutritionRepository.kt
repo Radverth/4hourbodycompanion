@@ -4,15 +4,12 @@ import com.tom.fourhourbody.data.dao.NutritionDao
 import com.tom.fourhourbody.data.entity.DamageControlLogEntity
 import com.tom.fourhourbody.data.entity.DietDayLogEntity
 import com.tom.fourhourbody.data.entity.DietMode
-import com.tom.fourhourbody.data.entity.MealLogEntity
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
 class NutritionRepository(private val dao: NutritionDao) {
 
     fun observeDay(date: LocalDate): Flow<DietDayLogEntity?> = dao.observeDay(date)
-
-    fun observeMeals(dietDayId: Long): Flow<List<MealLogEntity>> = dao.observeMeals(dietDayId)
 
     fun observeDamageControl(dietDayId: Long): Flow<DamageControlLogEntity?> =
         dao.observeDamageControl(dietDayId)
@@ -35,7 +32,7 @@ class NutritionRepository(private val dao: NutritionDao) {
 
     /**
      * Toggling the cheat day swaps which checklist is shown. Nothing else about the day is
-     * touched — meals, notes and any damage-control taps all survive the toggle.
+     * touched — notes and any damage-control taps survive the toggle either way.
      */
     suspend fun setCheatDay(date: LocalDate, defaultMode: DietMode, isCheatDay: Boolean) {
         updateDay(date, defaultMode) { it.copy(isCheatDay = isCheatDay) }
@@ -47,45 +44,20 @@ class NutritionRepository(private val dao: NutritionDao) {
         }
     }
 
-    suspend fun dayOn(date: LocalDate): DietDayLogEntity? = dao.getDay(date)
-
-    suspend fun mealsOn(dietDayId: Long): List<MealLogEntity> = dao.getMeals(dietDayId)
-
     /**
-     * Copies a previous day's meals and rule ticks forward. Slow-Carb Rule 2 is "eat the same
-     * few meals over and over", so repeating a day is the normal case and should cost one tap;
-     * typing it out again is what stops a food log getting filled in.
-     *
-     * The cheat-day flag is deliberately not copied — that is always a deliberate choice.
+     * The whole day in one tap. A compliant day is the common case, so it costs a single
+     * action; the day something slipped is the one that costs more — which is the right way
+     * round, and the opposite of asking for three ticks every evening.
      */
-    suspend fun copyDayForward(from: LocalDate, to: LocalDate, defaultMode: DietMode): Boolean {
-        val previous = dao.getDay(from) ?: return false
-        val target = ensureDay(to, defaultMode)
-
-        dao.upsertDay(
-            target.copy(
-                mode = previous.mode,
-                avoidedWhiteCarbs = previous.avoidedWhiteCarbs,
-                noLiquidCalories = previous.noLiquidCalories,
-                noFruit = previous.noFruit
-            )
-        )
-
-        val existing = dao.getMeals(target.id).associateBy { it.mealSlot }
-        dao.getMeals(previous.id).forEach { meal ->
-            dao.upsertMeal(
-                meal.copy(
-                    id = existing[meal.mealSlot]?.id ?: 0,
-                    dietDayId = target.id
-                )
+    suspend fun markDayClean(date: LocalDate, defaultMode: DietMode) {
+        updateDay(date, defaultMode) {
+            it.copy(
+                avoidedWhiteCarbs = true,
+                noLiquidCalories = true,
+                noFruit = true
             )
         }
-        return true
     }
-
-    suspend fun upsertMeal(meal: MealLogEntity) = dao.upsertMeal(meal)
-
-    suspend fun deleteMeal(meal: MealLogEntity) = dao.deleteMeal(meal)
 
     suspend fun updateDamageControl(
         dietDayId: Long,
