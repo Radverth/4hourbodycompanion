@@ -61,6 +61,10 @@ class DashboardViewModel(
     val runStatus: StateFlow<RunStatus?> = trainingRepository.runStatus()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /** Always present, so the header never has to render nothing. */
+    val runStatus: StateFlow<RunStatus?> = trainingRepository.runStatus()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     /**
      * The one pairing with a half still open today, if there is one. Deliberately not tied to
      * the adherence window selector — this is about today, not about a rate.
