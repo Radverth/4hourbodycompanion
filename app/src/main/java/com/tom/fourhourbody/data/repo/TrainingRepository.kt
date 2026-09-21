@@ -5,12 +5,17 @@ import com.tom.fourhourbody.data.entity.ExerciseConfigEntity
 import com.tom.fourhourbody.data.entity.ExerciseLogEntity
 import com.tom.fourhourbody.data.entity.FrequencySettingEntity
 import com.tom.fourhourbody.data.entity.KettlebellRoundEntity
+import com.tom.fourhourbody.data.entity.RunEnd
+import com.tom.fourhourbody.data.entity.RunEntity
 import com.tom.fourhourbody.data.entity.SessionEntity
+import com.tom.fourhourbody.domain.run.RunEngine
+import com.tom.fourhourbody.domain.run.RunSummary
 import com.tom.fourhourbody.domain.training.ProgressionEngine
 import com.tom.fourhourbody.domain.training.SessionScheduler
 import com.tom.fourhourbody.domain.training.TrainingConstants
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 
 /** What the dashboard and the session player need to know about scheduling. */
@@ -65,9 +70,13 @@ class TrainingRepository(private val dao: TrainingDao) {
     /**
      * A session row is created when the session starts, not when it ends, so inline stretch
      * logs have a session to attach to and a session abandoned mid-way still leaves a record.
+     * Starting a session with no run open opens one — the first session of a run is what
+     * begins it, so the user never has to declare a block before training.
      */
-    suspend fun startSession(date: LocalDate): Long =
-        dao.insertSession(SessionEntity(date = date, completed = false))
+    suspend fun startSession(date: LocalDate): Long {
+        val run = currentRun(date)
+        return dao.insertSession(SessionEntity(date = date, runId = run.id, completed = false))
+    }
 
     suspend fun logExercise(log: ExerciseLogEntity): Long = dao.insertExerciseLog(log)
 
@@ -94,4 +103,53 @@ class TrainingRepository(private val dao: TrainingDao) {
         return updated.currentRestDaysBetweenSessions
     }
 
+    // ---- Runs -------------------------------------------------------------------------
+    //
+    // A run is the block of training between one stall and the next. The protocol already
+    // works in blocks; naming them just makes the shape visible, and gives the weights
+    // somewhere to be banked when a block closes.
+
+    val activeRun: Flow<RunEntity?> = dao.observeActiveRun()
+
+    /** The open run, opening one if none is. */
+    suspend fun currentRun(today: LocalDate): RunEntity {
+        dao.getActiveRun()?.let { return it }
+        val run = RunEntity(
+            runNumber = RunEngine.nextRunNumber(dao.getRuns()),
+            startDate = today,
+            restDaysAtStart = frequency().currentRestDaysBetweenSessions
+        )
+        val id = dao.insertRun(run)
+        return run.copy(id = id)
+    }
+
+    suspend fun completedSessionsInCurrentRun(): Int =
+        dao.getActiveRun()?.let { dao.countCompletedInRun(it.id) } ?: 0
+
+    /**
+     * Closes the open run and reads back what it earned. Called after [applyStall] so the
+     * rest days recorded on the run are the ones the next run will actually use.
+     */
+    suspend fun endRun(endedBy: RunEnd, today: LocalDate): RunSummary? {
+        val run = dao.getActiveRun() ?: return null
+        val closed = run.copy(
+            endDate = today,
+            endedBy = endedBy,
+            restDaysAtEnd = frequency().currentRestDaysBetweenSessions
+        )
+        dao.updateRun(closed)
+        return summarise(closed, today)
+    }
+
+    suspend fun summarise(run: RunEntity, today: LocalDate): RunSummary =
+        RunEngine.summarise(
+            run = run,
+            sessions = dao.getSessionsForRun(run.id),
+            logs = dao.getLogsForRun(run.id),
+            today = today
+        )
+
+    /** Every run, newest first — the open one included, so a run in progress still reads. */
+    fun runHistory(today: LocalDate): Flow<List<RunSummary>> =
+        dao.observeRuns().map { runs -> runs.map { summarise(it, today) } }
 }

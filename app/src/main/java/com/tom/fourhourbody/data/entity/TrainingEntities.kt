@@ -5,10 +5,37 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.LocalDate
 
-@Entity(tableName = "sessions", indices = [Index("date")])
+/** How a run ended. A run that is still going has neither. */
+enum class RunEnd { STALL, MANUAL }
+
+/**
+ * A run: the block of training between one stall and the next.
+ *
+ * This is not a metaphor laid over the protocol — the book already works this way. You push
+ * weight up session after session until you miss your target by more than a rep, and that
+ * miss ends the block and buys you another rest day. The run is that block, and the stall is
+ * how it ends. What carries over is everything that matters: the weights, the records, the
+ * wider gap that makes the next block work.
+ */
+@Entity(tableName = "runs")
+data class RunEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val runNumber: Int,
+    val startDate: LocalDate,
+    val endDate: LocalDate? = null,
+    val endedBy: RunEnd? = null,
+    val restDaysAtStart: Int,
+    val restDaysAtEnd: Int? = null
+) {
+    val isActive: Boolean get() = endDate == null
+}
+
+@Entity(tableName = "sessions", indices = [Index("date"), Index("runId")])
 data class SessionEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val date: LocalDate,
+    /** The run this session belongs to; null only for sessions logged before runs existed. */
+    val runId: Long? = null,
     val completed: Boolean = false,
     /** True when the target rep count was missed by more than one rep on any exercise. */
     val stalled: Boolean = false,

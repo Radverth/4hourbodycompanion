@@ -22,6 +22,7 @@ import com.tom.fourhourbody.data.entity.ExerciseLogEntity
 import com.tom.fourhourbody.data.entity.FrequencySettingEntity
 import com.tom.fourhourbody.data.entity.KettlebellRoundEntity
 import com.tom.fourhourbody.data.entity.MeasurementEntity
+import com.tom.fourhourbody.data.entity.RunEntity
 import com.tom.fourhourbody.data.entity.SessionEntity
 import com.tom.fourhourbody.data.entity.SettingsEntity
 import com.tom.fourhourbody.data.entity.SleepLogEntity
@@ -36,6 +37,7 @@ import com.tom.fourhourbody.data.entity.StretchLogEntity
  */
 @Database(
     entities = [
+        RunEntity::class,
         SessionEntity::class,
         ExerciseLogEntity::class,
         ExerciseConfigEntity::class,
@@ -51,7 +53,7 @@ import com.tom.fourhourbody.data.entity.StretchLogEntity
         MeasurementEntity::class,
         SettingsEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
