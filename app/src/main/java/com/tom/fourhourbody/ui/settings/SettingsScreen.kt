@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,10 +27,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tom.fourhourbody.data.entity.DietMode
 import com.tom.fourhourbody.data.entity.Pillar
 import com.tom.fourhourbody.domain.creatine.CreatineCycle
+import com.tom.fourhourbody.domain.shift.ShiftWeek
 import com.tom.fourhourbody.ui.common.BackTopBar
 import com.tom.fourhourbody.ui.common.NumberField
 import com.tom.fourhourbody.ui.common.SectionCard
 import com.tom.fourhourbody.ui.common.SwitchRow
+import com.tom.fourhourbody.ui.theme.Palette
 import com.tom.fourhourbody.ui.common.rememberContainer
 import com.tom.fourhourbody.util.asTimeOfDay
 import com.tom.fourhourbody.util.displayShort
@@ -49,6 +53,123 @@ fun SettingsScreen(onBack: () -> Unit) {
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            item {
+                SectionCard(
+                    title = "Shift pattern",
+                    subtitle = "Reminders are kept out of your working hours. A prompt you " +
+                        "can't act on just teaches you to ignore the app."
+                ) {
+                    Column {
+                        SwitchRow(
+                            label = "I work an alternating rota",
+                            checked = settings.shiftEnabled,
+                            onCheckedChange = { value ->
+                                viewModel.update { it.copy(shiftEnabled = value) }
+                            }
+                        )
+
+                        if (settings.shiftEnabled) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                if (settings.shiftAnchorMonday == null) {
+                                    "Which week are you on right now?"
+                                } else {
+                                    when (viewModel.currentWeek(settings)) {
+                                        ShiftWeek.A -> "This week is the early shift."
+                                        ShiftWeek.B -> "This week is the late shift."
+                                        null -> "Which week are you on right now?"
+                                    }
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Palette.TextSecondary
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { viewModel.anchorThisWeek(true) }) {
+                                    Text("This week is early")
+                                }
+                                OutlinedButton(onClick = { viewModel.anchorThisWeek(false) }) {
+                                    Text("This week is late")
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+                            Text("Early week", style = MaterialTheme.typography.titleMedium)
+                            TimeRow(
+                                label = "Starts",
+                                minutes = settings.shiftAStartMinutes,
+                                onChange = { v -> viewModel.update { it.copy(shiftAStartMinutes = v) } }
+                            )
+                            TimeRow(
+                                label = "Ends",
+                                minutes = settings.shiftAEndMinutes,
+                                onChange = { v -> viewModel.update { it.copy(shiftAEndMinutes = v) } }
+                            )
+
+                            Spacer(Modifier.height(8.dp))
+                            Text("Late week", style = MaterialTheme.typography.titleMedium)
+                            TimeRow(
+                                label = "Starts",
+                                minutes = settings.shiftBStartMinutes,
+                                onChange = { v -> viewModel.update { it.copy(shiftBStartMinutes = v) } }
+                            )
+                            TimeRow(
+                                label = "Ends",
+                                minutes = settings.shiftBEndMinutes,
+                                onChange = { v -> viewModel.update { it.copy(shiftBEndMinutes = v) } }
+                            )
+
+                            Spacer(Modifier.height(8.dp))
+                            Text("Working days", style = MaterialTheme.typography.bodyMedium)
+                            DayPicker(
+                                selected = settings.workDays,
+                                onToggle = { day ->
+                                    viewModel.update { current ->
+                                        current.copy(workDays = current.workDays.toggle(day))
+                                    }
+                                }
+                            )
+
+                            Spacer(Modifier.height(8.dp))
+                            SwitchRow(
+                                label = "I can stretch at my desk",
+                                checked = settings.canStretchAtWork,
+                                onCheckedChange = { value ->
+                                    viewModel.update { it.copy(canStretchAtWork = value) }
+                                },
+                                supporting = if (settings.canStretchAtWork) {
+                                    "Desk resets are spread through the working day."
+                                } else {
+                                    "Desk resets wait until your shift ends."
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                SectionCard(
+                    title = "When will you do it?",
+                    subtitle = "Saying when and where roughly doubles the odds of following " +
+                        "through. The app reads this back at the moment it matters."
+                ) {
+                    Column {
+                        Pillar.entries.filter(settings::isEnabled).forEach { pillar ->
+                            OutlinedTextField(
+                                value = settings.intentionFor(pillar).orEmpty(),
+                                onValueChange = { viewModel.setIntention(pillar, it) },
+                                label = { Text(pillar.label) },
+                                placeholder = { Text("train right after my shift") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(Modifier.height(8.dp))
+                        }
+                    }
+                }
+            }
+
             item {
                 SectionCard(
                     title = "Pillars",
@@ -168,6 +289,11 @@ fun SettingsScreen(onBack: () -> Unit) {
                             },
                             supporting = "Every few hours during the work-hours window."
                         )
+                        Text(
+                            "Used only when the shift rota is off.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Palette.TextSecondary
+                        )
                         TimeRow(
                             label = "Window starts",
                             minutes = settings.deskResetStartMinutes,
@@ -191,10 +317,10 @@ fun SettingsScreen(onBack: () -> Unit) {
                         Spacer(Modifier.height(8.dp))
                         Text("Work days", style = MaterialTheme.typography.bodyMedium)
                         DayPicker(
-                            selected = settings.deskResetDays,
+                            selected = settings.workDays,
                             onToggle = { day ->
                                 viewModel.update { current ->
-                                    current.copy(deskResetDays = current.deskResetDays.toggle(day))
+                                    current.copy(workDays = current.workDays.toggle(day))
                                 }
                             }
                         )

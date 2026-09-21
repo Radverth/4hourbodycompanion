@@ -51,7 +51,7 @@ import com.tom.fourhourbody.data.entity.StretchLogEntity
         MeasurementEntity::class,
         SettingsEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(Converters::class)

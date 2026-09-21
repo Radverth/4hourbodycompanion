@@ -91,6 +91,12 @@ class ReminderReceiver : BroadcastReceiver() {
             day?.let { "${kind.body} Day $it of ${CreatineCycle.CYCLE_LENGTH_DAYS}." }
         }
 
+        ReminderKind.DESK_RESET_INTERVAL -> {
+            val settings = container.settingsRepository.current()
+            ReminderTimes.sittingHoursFor(LocalDateTime.now(), settings)
+                ?.let { hours -> "That's $hours hours sitting. Five minutes resets the hips." }
+        }
+
         else -> null
     }
 }

@@ -51,4 +51,22 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+/**
+ * Adds the alternating shift rota, so reminders can be kept out of working hours.
+ *
+ * Every added column is NOT NULL with a default that matches the entity's @ColumnInfo, except
+ * the anchor Monday, which is genuinely absent until the rota is set up.
+ */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE settings ADD COLUMN shiftEnabled INTEGER NOT NULL DEFAULT 1")
+        db.execSQL("ALTER TABLE settings ADD COLUMN shiftAnchorMonday INTEGER")
+        db.execSQL("ALTER TABLE settings ADD COLUMN shiftAStartMinutes INTEGER NOT NULL DEFAULT 480")
+        db.execSQL("ALTER TABLE settings ADD COLUMN shiftAEndMinutes INTEGER NOT NULL DEFAULT 1020")
+        db.execSQL("ALTER TABLE settings ADD COLUMN shiftBStartMinutes INTEGER NOT NULL DEFAULT 540")
+        db.execSQL("ALTER TABLE settings ADD COLUMN shiftBEndMinutes INTEGER NOT NULL DEFAULT 1080")
+        db.execSQL("ALTER TABLE settings ADD COLUMN canStretchAtWork INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)

@@ -8,7 +8,9 @@ import com.tom.fourhourbody.domain.streak.Chain
 import com.tom.fourhourbody.domain.streak.StreakCalculator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import com.tom.fourhourbody.domain.shift.ShiftSchedule
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
 data class MotivationState(
@@ -20,7 +22,11 @@ data class MotivationState(
     /** 0 when the cheat day is today. */
     val cheatDayIn: Int,
     val cheatDayName: String,
-    val trainingIntention: String?
+    val trainingIntention: String?,
+    /** True while the office day is still running — nothing physical is askable yet. */
+    val onShiftNow: Boolean,
+    /** Minutes-of-day the current shift ends, for "free after 17:00". */
+    val shiftEndsAtMinutes: Int?
 )
 
 /**
@@ -86,7 +92,9 @@ class MotivationRepository(
                 creatine = StreakCalculator.chain(creatineMet),
                 cheatDayIn = daysUntilCheatDay(today, settings),
                 cheatDayName = settings.cheatDay.displayName(),
-                trainingIntention = settings.intentionFor(Pillar.TRAINING)
+                trainingIntention = settings.intentionFor(Pillar.TRAINING),
+                onShiftNow = ShiftSchedule.isWorking(LocalDateTime.now(), settings.shiftPattern),
+                shiftEndsAtMinutes = ShiftSchedule.shiftEndOn(today, settings.shiftPattern)
             )
         }
     }
