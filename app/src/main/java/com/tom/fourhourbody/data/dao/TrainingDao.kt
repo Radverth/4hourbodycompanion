@@ -105,6 +105,16 @@ interface TrainingDao {
     )
     fun observeCompletedLogs(): Flow<List<ExerciseLogEntity>>
 
+    /** The heaviest this exercise has ever been logged at, across every completed session. */
+    @Query(
+        """
+        SELECT MAX(el.weightKg) FROM exercise_logs el
+        INNER JOIN sessions s ON s.id = el.sessionId
+        WHERE el.exerciseName = :exerciseName AND s.completed = 1
+        """
+    )
+    suspend fun getBestEverFor(exerciseName: String): Double?
+
     @Insert
     suspend fun insertKettlebellRound(round: KettlebellRoundEntity): Long
 

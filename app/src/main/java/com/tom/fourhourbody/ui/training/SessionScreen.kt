@@ -234,6 +234,32 @@ private fun StrengthStage(prompt: ExercisePrompt, onLog: (Double, Int) -> Unit) 
         )
     }
 
+    // The record is called while the weight is still on the bar. Saving it for the summary
+    // puts the reward minutes after the effort that earned it.
+    val entered = weightText.toDoubleOrNull()
+    if (entered != null && prompt.isRecord(entered)) {
+        Spacer(Modifier.height(10.dp))
+        Row(
+            Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(Palette.EmberSurface)
+                .border(1.dp, Palette.EmberLine, RoundedCornerShape(999.dp))
+                .padding(horizontal = 14.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "NEW BEST",
+                style = MaterialTheme.typography.labelSmall,
+                color = Palette.Ember
+            )
+            Text(
+                "  past ${prompt.bestEverKg!!.kgDisplay()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.EmberText
+            )
+        }
+    }
+
     Spacer(Modifier.height(16.dp))
     NumberField(
         label = "Weight (kg)",

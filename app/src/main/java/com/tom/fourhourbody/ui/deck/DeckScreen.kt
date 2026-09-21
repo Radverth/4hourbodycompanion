@@ -184,19 +184,23 @@ private fun CardTile(card: DeckCard, modifier: Modifier = Modifier, onClick: () 
             }
         }
 
+        // The fact leads and the tier trails it. A tier is a label stuck on a count, and a
+        // label that outranks the thing it summarises is the point where a game layer stops
+        // describing the work and starts replacing it.
         Spacer(Modifier.height(8.dp))
-        Text(
-            card.tier.label.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = if (faded) Palette.TextTertiary else colour
-        )
         Text(
             card.name,
             style = MaterialTheme.typography.titleMedium,
             color = if (card.inDeck) Palette.TextPrimary else Palette.TextSecondary
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(2.dp))
         Text(card.detail, style = MaterialTheme.typography.bodySmall, color = Palette.TextSecondary)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            card.tier.label.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = if (faded) Palette.TextTertiary else colour
+        )
 
         card.gainKg?.takeIf { it > 0.01 }?.let { gain ->
             Spacer(Modifier.height(6.dp))

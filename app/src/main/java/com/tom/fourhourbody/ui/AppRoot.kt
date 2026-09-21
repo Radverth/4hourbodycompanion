@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
@@ -55,6 +56,7 @@ private val bottomItems = listOf(
     BottomItem(Routes.TRAINING, "Train", Icons.Filled.PlayArrow),
     BottomItem(Routes.STRETCHES, "Stretch", Icons.Filled.Refresh),
     BottomItem(Routes.NUTRITION, "Food", Icons.Filled.ShoppingCart),
+    BottomItem(Routes.DECK, "Deck", Icons.Filled.Star),
     BottomItem(Routes.MORE, "More", Icons.Filled.MoreVert)
 )
 

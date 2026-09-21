@@ -27,6 +27,17 @@ data class TrainingSchedule(
     val daysUntilNext: Long
 )
 
+/**
+ * Where training stands, phrased so it always reads — before the first session as much as
+ * mid-block. An empty app still has a run number, and saying "run 1, not started" is worth
+ * more than saying nothing at all.
+ */
+data class RunStatus(
+    val runNumber: Int,
+    val sessionsThisRun: Int,
+    val started: Boolean
+)
+
 class TrainingRepository(private val dao: TrainingDao) {
 
     val allConfigs: Flow<List<ExerciseConfigEntity>> = dao.observeAllConfigs()
@@ -74,6 +85,8 @@ class TrainingRepository(private val dao: TrainingDao) {
     }
 
     suspend fun lastLogFor(exerciseName: String): ExerciseLogEntity? = dao.getLastLogFor(exerciseName)
+
+    suspend fun bestEverFor(exerciseName: String): Double? = dao.getBestEverFor(exerciseName)
 
     /**
      * A session row is created when the session starts, not when it ends, so inline stretch
@@ -156,6 +169,20 @@ class TrainingRepository(private val dao: TrainingDao) {
             logs = dao.getLogsForRun(run.id),
             today = today
         )
+
+    /** Never empty: with no run open it reports the number the next one will take. */
+    fun runStatus(): Flow<RunStatus> =
+        combine(dao.observeActiveRun(), dao.observeRuns(), dao.observeSessions()) { active, runs, sessions ->
+            if (active == null) {
+                RunStatus(RunEngine.nextRunNumber(runs), sessionsThisRun = 0, started = false)
+            } else {
+                RunStatus(
+                    runNumber = active.runNumber,
+                    sessionsThisRun = sessions.count { it.runId == active.id && it.completed },
+                    started = true
+                )
+            }
+        }
 
     /** Every run, newest first — the open one included, so a run in progress still reads. */
     fun runHistory(today: LocalDate): Flow<List<RunSummary>> =
