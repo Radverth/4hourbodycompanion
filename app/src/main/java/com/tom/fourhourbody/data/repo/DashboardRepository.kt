@@ -33,7 +33,6 @@ data class NutritionToday(
     val dayLogged: Boolean,
     val isCheatDay: Boolean,
     val rulesMet: Int,
-    val mealsLogged: Int,
     val damageControlTicks: Int
 )
 
@@ -107,12 +106,9 @@ class DashboardRepository(
 
         val nutritionFlow = nutritionRepository.observeDay(date).flatMapLatest { day ->
             if (day == null) {
-                flowOf(NutritionToday(false, false, 0, 0, 0))
+                flowOf(NutritionToday(false, false, 0, 0))
             } else {
-                combine(
-                    nutritionRepository.observeMeals(day.id),
-                    nutritionRepository.observeDamageControl(day.id)
-                ) { meals, damage ->
+                nutritionRepository.observeDamageControl(day.id).map { damage ->
                     NutritionToday(
                         dayLogged = true,
                         isCheatDay = day.isCheatDay,
@@ -121,7 +117,6 @@ class DashboardRepository(
                             day.noLiquidCalories,
                             day.noFruit
                         ).count { it },
-                        mealsLogged = meals.size,
                         damageControlTicks = damage?.let {
                             listOf(
                                 it.proteinFiberFirstMeal,
