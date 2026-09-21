@@ -3,6 +3,7 @@ package com.tom.fourhourbody.data.entity
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.tom.fourhourbody.domain.shift.ShiftPattern
 import java.time.DayOfWeek
 import java.time.LocalDate
 
@@ -37,7 +38,12 @@ data class SettingsEntity(
     val deskResetStartMinutes: Int = 9 * 60,
     val deskResetEndMinutes: Int = 17 * 60,
     val deskResetIntervalHours: Int = 3,
-    val deskResetDays: Set<DayOfWeek> = setOf(
+    /**
+     * Days at a desk. Also the days the shift rota applies to — they are the same days, so
+     * the column keeps its original name rather than duplicating itself.
+     */
+    @ColumnInfo(name = "deskResetDays")
+    val workDays: Set<DayOfWeek> = setOf(
         DayOfWeek.MONDAY,
         DayOfWeek.TUESDAY,
         DayOfWeek.WEDNESDAY,
@@ -54,6 +60,30 @@ data class SettingsEntity(
     val creatineRemindersEnabled: Boolean = true,
     val creatineMorningMinutes: Int = 7 * 60,
     val creatineEveningMinutes: Int = 22 * 60,
+
+    /**
+     * An alternating two-week office rota: one week early, the next week late. Reminders are
+     * kept out of it — a prompt that lands while you are at a desk and cannot act on it
+     * teaches you to ignore the app, which costs more than the missed prompt.
+     *
+     * [shiftAnchorMonday] is a Monday known to be an early week; null means not set up yet,
+     * and the rota is treated as off until it is.
+     */
+    @ColumnInfo(defaultValue = "1")
+    val shiftEnabled: Boolean = true,
+    val shiftAnchorMonday: LocalDate? = null,
+    @ColumnInfo(defaultValue = "480")
+    val shiftAStartMinutes: Int = 8 * 60,
+    @ColumnInfo(defaultValue = "1020")
+    val shiftAEndMinutes: Int = 17 * 60,
+    @ColumnInfo(defaultValue = "540")
+    val shiftBStartMinutes: Int = 9 * 60,
+    @ColumnInfo(defaultValue = "1080")
+    val shiftBEndMinutes: Int = 18 * 60,
+
+    /** Off by default: most desks are not places you can lie on the floor for five minutes. */
+    @ColumnInfo(defaultValue = "0")
+    val canStretchAtWork: Boolean = false,
 
     /**
      * Implementation intentions — "I will do X after Y". Stating when and where roughly
@@ -99,6 +129,18 @@ data class SettingsEntity(
     }
 
     val enabledPillars: List<Pillar> get() = Pillar.entries.filter { isEnabled(it) }
+
+    /** The rota as the scheduling logic wants it; disabled until an anchor week is set. */
+    val shiftPattern: ShiftPattern
+        get() = ShiftPattern(
+            enabled = shiftEnabled && shiftAnchorMonday != null,
+            days = workDays,
+            anchorMonday = shiftAnchorMonday ?: LocalDate.of(2026, 1, 5),
+            aStartMinutes = shiftAStartMinutes,
+            aEndMinutes = shiftAEndMinutes,
+            bStartMinutes = shiftBStartMinutes,
+            bEndMinutes = shiftBEndMinutes
+        )
 
     fun intentionFor(pillar: Pillar): String? = when (pillar) {
         Pillar.TRAINING -> trainingIntention

@@ -46,6 +46,7 @@ import com.tom.fourhourbody.ui.common.rememberContainer
 import com.tom.fourhourbody.ui.nav.Routes
 import com.tom.fourhourbody.ui.theme.NumeralSmall
 import com.tom.fourhourbody.ui.theme.Palette
+import com.tom.fourhourbody.util.asTimeOfDay
 import com.tom.fourhourbody.util.displayShort
 import com.tom.fourhourbody.util.kgDisplay
 
@@ -180,15 +181,23 @@ private fun IntentionStrip(state: DashboardState, motivation: MotivationState?) 
         CompletionRing(done = done, total = enabled.coerceAtLeast(1))
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             val intention = motivation?.trainingIntention
+            val onShift = motivation?.onShiftNow == true
+            val endsAt = motivation?.shiftEndsAtMinutes
+
             Text(
-                if (intention != null) "You said you'd $intention." else "$done of $enabled done today.",
+                when {
+                    onShift && endsAt != null -> "At work until ${endsAt.asTimeOfDay()}."
+                    intention != null -> "You said you'd $intention."
+                    else -> "$done of $enabled done today."
+                },
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                if (intention != null) {
-                    "$done of $enabled done today."
-                } else {
-                    "Set when you'll train in Settings and this will remind you."
+                when {
+                    onShift && intention != null -> "Then: $intention."
+                    onShift -> "$done of $enabled done — the rest is for after."
+                    intention != null -> "$done of $enabled done today."
+                    else -> "Set when you'll train in Settings and this will remind you."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = Palette.TextSecondary

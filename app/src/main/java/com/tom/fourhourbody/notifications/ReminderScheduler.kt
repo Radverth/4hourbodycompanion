@@ -24,18 +24,18 @@ object ReminderScheduler {
         Notifier.ensureChannels(context)
 
         if (settings.isEnabled(Pillar.TRAINING)) {
-            schedule(context, ReminderKind.TRAINING_SESSION, ReminderTimes.nextDaily(now, settings.reminderTimeMinutes))
+            schedule(context, ReminderKind.TRAINING_SESSION, ReminderTimes.nextDaily(now, settings.reminderTimeMinutes, settings.shiftPattern))
             schedule(
                 context,
                 ReminderKind.SKIPPED_SESSION_NUDGE,
-                ReminderTimes.nextDaily(now, ReminderTimes.nudgeMinutes(settings))
+                ReminderTimes.nextDaily(now, ReminderTimes.nudgeMinutes(settings), settings.shiftPattern)
             )
             // The weigh-in reminder is independent of the other pillar reminders, but there is
             // no separate "progress" toggle — it rides with training.
             schedule(
                 context,
                 ReminderKind.WEEKLY_WEIGH_IN,
-                ReminderTimes.nextWeekly(now, settings.weighInDay, settings.weighInTimeMinutes)
+                ReminderTimes.nextWeekly(now, settings.weighInDay, settings.weighInTimeMinutes, settings.shiftPattern)
             )
         }
 
@@ -48,12 +48,12 @@ object ReminderScheduler {
             schedule(
                 context,
                 ReminderKind.WEEKLY_DESK_RESET,
-                ReminderTimes.nextWeekly(now, settings.weeklyDeskResetDay, settings.weeklyRoutineTimeMinutes)
+                ReminderTimes.nextWeekly(now, settings.weeklyDeskResetDay, settings.weeklyRoutineTimeMinutes, settings.shiftPattern)
             )
             schedule(
                 context,
                 ReminderKind.WEEKLY_MOBILITY,
-                ReminderTimes.nextWeekly(now, settings.weeklyMobilityDay, settings.weeklyRoutineTimeMinutes)
+                ReminderTimes.nextWeekly(now, settings.weeklyMobilityDay, settings.weeklyRoutineTimeMinutes, settings.shiftPattern)
             )
         }
 
@@ -61,7 +61,7 @@ object ReminderScheduler {
             schedule(
                 context,
                 ReminderKind.SLEEP_CHECKLIST,
-                ReminderTimes.nextDaily(now, settings.sleepReminderMinutes)
+                ReminderTimes.nextDaily(now, settings.sleepReminderMinutes, settings.shiftPattern)
             )
         }
 
@@ -75,12 +75,12 @@ object ReminderScheduler {
             schedule(
                 context,
                 ReminderKind.CREATINE_MORNING,
-                ReminderTimes.nextDaily(now, settings.creatineMorningMinutes)
+                ReminderTimes.nextDaily(now, settings.creatineMorningMinutes, settings.shiftPattern)
             )
             schedule(
                 context,
                 ReminderKind.CREATINE_EVENING,
-                ReminderTimes.nextDaily(now, settings.creatineEveningMinutes)
+                ReminderTimes.nextDaily(now, settings.creatineEveningMinutes, settings.shiftPattern)
             )
         }
     }

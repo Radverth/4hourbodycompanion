@@ -30,36 +30,6 @@ import androidx.compose.ui.unit.dp
 import com.tom.fourhourbody.ui.theme.NumeralSmall
 import com.tom.fourhourbody.ui.theme.Palette
 
-/**
- * The chain, as a row of days. A gap you can see is a stronger argument than a percentage —
- * this is the whole reason the strip exists.
- */
-@Composable
-fun WeekStrip(
-    met: List<Boolean>,
-    colour: Color,
-    modifier: Modifier = Modifier,
-    todayPending: Boolean = false
-) {
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        met.forEachIndexed { index, hit ->
-            val isToday = todayPending && index == met.lastIndex
-            Box(
-                Modifier
-                    .size(7.dp)
-                    .clip(CircleShape)
-                    .then(
-                        when {
-                            hit -> Modifier.background(colour)
-                            isToday -> Modifier.border(1.dp, colour, CircleShape)
-                            else -> Modifier.background(Palette.DotEmpty)
-                        }
-                    )
-            )
-        }
-    }
-}
-
 /** Loss framing, with the forgiveness stated plainly so a slip does not feel terminal. */
 @Composable
 fun ChainPill(

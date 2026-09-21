@@ -3,6 +3,10 @@ name: Build APK
 on:
   push:
     branches: [main]
+  # Build the branch too, so a red change cannot reach main unnoticed. Run 7 went red on
+  # main precisely because nothing tested the branch first.
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 # A newer push to main makes an in-flight build redundant.
@@ -60,7 +64,7 @@ jobs:
       # Releases do not expire, unlike the 30-day run artifact, so this is the durable
       # download point. Uses the preinstalled gh CLI rather than a third-party action.
       - name: Publish release
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Everything from the event goes through the environment rather than being
