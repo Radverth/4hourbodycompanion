@@ -2,6 +2,9 @@ package com.tom.fourhourbody.ui.stretches
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,6 +15,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.ui.draw.clip
+import com.tom.fourhourbody.ui.theme.Palette
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -30,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import com.tom.fourhourbody.data.entity.StretchConfigEntity
 import com.tom.fourhourbody.data.entity.StretchMode
 import com.tom.fourhourbody.data.entity.StretchRoutine
+import com.tom.fourhourbody.domain.stretch.StretchGuide
+import com.tom.fourhourbody.domain.stretch.StretchGuides
 import com.tom.fourhourbody.ui.common.BigReadout
 import com.tom.fourhourbody.util.Feedback
 import com.tom.fourhourbody.util.MonotonicTimer
@@ -151,6 +158,11 @@ fun StretchRunner(
             )
         }
 
+        StretchGuides[step.name]?.let { guide ->
+            Spacer(Modifier.height(10.dp))
+            HowToPanel(guide)
+        }
+
         when (step.mode) {
             StretchMode.HOLD -> HoldStep(
                 step = step,
@@ -266,5 +278,70 @@ fun KeepScreenOn() {
     DisposableEffect(view) {
         view.keepScreenOn = true
         onDispose { view.keepScreenOn = false }
+    }
+}
+
+/**
+ * How to do the stretch, folded away by default.
+ *
+ * Open while you are learning it, shut once you are not — a timer running under a wall of
+ * instructions is worse than either on its own. The state is per-step, so opening it on one
+ * stretch does not leave it open on the next.
+ */
+@Composable
+private fun HowToPanel(guide: StretchGuide) {
+    var expanded by remember(guide) { mutableStateOf(false) }
+
+    Column(Modifier.fillMaxWidth()) {
+        TextButton(onClick = { expanded = !expanded }) {
+            Text(if (expanded) "Hide how to do it" else "How to do it")
+        }
+
+        if (expanded) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Palette.Surface)
+                    .padding(14.dp)
+            ) {
+                GuideBlock("SET UP", guide.setup)
+                Spacer(Modifier.height(10.dp))
+                GuideBlock("DO THIS", guide.execution)
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "WATCH FOR",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Palette.Warn
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    guide.watchFor,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.TextSecondary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuideBlock(label: String, lines: List<String>) {
+    Text(label, style = MaterialTheme.typography.labelSmall, color = Palette.TextTertiary)
+    Spacer(Modifier.height(4.dp))
+    lines.forEachIndexed { index, line ->
+        Row(Modifier.fillMaxWidth().padding(top = if (index == 0) 0.dp else 5.dp)) {
+            Text(
+                "${index + 1}.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextTertiary,
+                modifier = Modifier.width(20.dp)
+            )
+            Text(
+                line,
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextSecondary
+            )
+        }
     }
 }

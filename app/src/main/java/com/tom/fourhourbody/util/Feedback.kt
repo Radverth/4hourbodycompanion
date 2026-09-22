@@ -35,6 +35,23 @@ object Feedback {
         vibrate(context, 60)
     }
 
+    /**
+     * The turn at the top of a rep: stop lifting, start lowering.
+     *
+     * Under a 5s/5s tempo you cannot watch a screen and keep form, so the cue has to be
+     * audible. It is pitched apart from [transitionTone] on purpose — one says "reverse",
+     * the other says "that is a rep" — because hearing which is which is the whole point.
+     */
+    fun turnTone(context: Context) {
+        runCatching {
+            ToneGenerator(AudioManager.STREAM_NOTIFICATION, 75).apply {
+                startTone(ToneGenerator.TONE_PROP_PROMPT, 120)
+                android.os.Handler(context.mainLooper).postDelayed({ release() }, 260)
+            }
+        }
+        vibrate(context, 40)
+    }
+
     private fun vibrate(context: Context, ms: Long) {
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)

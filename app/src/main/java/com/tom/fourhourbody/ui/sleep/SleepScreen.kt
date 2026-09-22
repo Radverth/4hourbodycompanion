@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tom.fourhourbody.ui.common.CheckRow
+import com.tom.fourhourbody.ui.common.ChipRow
 import com.tom.fourhourbody.ui.common.SectionCard
 import com.tom.fourhourbody.ui.common.rememberContainer
 import com.tom.fourhourbody.util.displayShort
@@ -100,7 +101,7 @@ fun SleepScreen() {
 
         item {
             SectionCard(title = "Quality", subtitle = "Optional, 1–5.") {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChipRow {
                     (1..5).forEach { rating ->
                         FilterChip(
                             selected = log?.qualityRating == rating,

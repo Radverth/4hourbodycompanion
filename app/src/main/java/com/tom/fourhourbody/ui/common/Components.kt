@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,6 +33,26 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
+
+/**
+ * Chips that wrap instead of being squeezed.
+ *
+ * A plain Row divides its width between the chips, so a label longer than its share gets
+ * compressed until it breaks one character per line — which is exactly what "Pre-bed bath"
+ * did on the cold screen. Flowing them keeps every chip at its natural width and moves the
+ * overflow onto a second line.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun ChipRow(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        content()
+    }
+}
 
 @Composable
 fun SectionCard(

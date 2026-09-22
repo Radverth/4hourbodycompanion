@@ -30,6 +30,7 @@ import com.tom.fourhourbody.domain.creatine.CreatineCycle
 import com.tom.fourhourbody.domain.shift.ShiftWeek
 import com.tom.fourhourbody.ui.common.BackTopBar
 import com.tom.fourhourbody.ui.common.NumberField
+import com.tom.fourhourbody.ui.common.ChipRow
 import com.tom.fourhourbody.ui.common.SectionCard
 import com.tom.fourhourbody.ui.common.SwitchRow
 import com.tom.fourhourbody.ui.theme.Palette
@@ -264,7 +265,7 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             item {
                 SectionCard(title = "Nutrition") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChipRow {
                         DietMode.entries.forEach { mode ->
                             FilterChip(
                                 selected = settings.dietMode == mode,
@@ -471,7 +472,7 @@ private fun TimeRow(label: String, minutes: Int, onChange: (Int) -> Unit) {
 
 @Composable
 private fun DayPicker(selected: Set<DayOfWeek>, onToggle: (DayOfWeek) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    ChipRow {
         weekDays.forEach { day ->
             FilterChip(
                 selected = selected.contains(day),
