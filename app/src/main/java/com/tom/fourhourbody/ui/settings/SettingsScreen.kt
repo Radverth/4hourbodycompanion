@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tom.fourhourbody.BuildConfig
 import com.tom.fourhourbody.data.entity.DietMode
 import com.tom.fourhourbody.data.entity.Pillar
 import com.tom.fourhourbody.domain.creatine.CreatineCycle
@@ -431,6 +432,15 @@ fun SettingsScreen(onBack: () -> Unit) {
                         )
                     }
                 }
+            }
+
+            item {
+                SectionCard(
+                    title = "About",
+                    subtitle = "Version ${BuildConfig.VERSION_NAME}, code " +
+                        "${BuildConfig.VERSION_CODE}. Worth quoting in any bug report — it " +
+                        "names the exact build, which a screenshot otherwise cannot."
+                )
             }
         }
     }
