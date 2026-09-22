@@ -20,9 +20,7 @@ import com.tom.fourhourbody.data.repo.TrainingRepository
 import com.tom.fourhourbody.domain.SleepNight
 import com.tom.fourhourbody.domain.progress.Milestones
 import com.tom.fourhourbody.domain.today.Focus
-import com.tom.fourhourbody.domain.progress.Milestones
 import com.tom.fourhourbody.domain.today.FocusInputs
-import com.tom.fourhourbody.domain.progress.Milestones
 import com.tom.fourhourbody.domain.today.FocusRules
 import com.tom.fourhourbody.domain.synergy.SynergyEngine
 import com.tom.fourhourbody.domain.synergy.SynergyState
