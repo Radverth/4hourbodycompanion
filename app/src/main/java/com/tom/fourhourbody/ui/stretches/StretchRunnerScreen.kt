@@ -1,6 +1,9 @@
 package com.tom.fourhourbody.ui.stretches
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,9 +46,17 @@ fun StretchRunnerScreen(
 
     KeepScreenOn()
 
-    StretchRunner(
-        steps = currentSteps,
-        onFinished = { completions -> viewModel.save(completions) },
-        onExit = onExit
-    )
+    // Inside a session the runner already sits in a scrolling column; standalone it did not,
+    // so anything taller than the screen — the how-to panel, once opened — was unreachable.
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+    ) {
+        StretchRunner(
+            steps = currentSteps,
+            onFinished = { completions -> viewModel.save(completions) },
+            onExit = onExit
+        )
+    }
 }

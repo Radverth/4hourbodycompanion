@@ -61,6 +61,7 @@ fun DashboardScreen(onOpenPillar: (String) -> Unit) {
     val runStatus by viewModel.runStatus.collectAsStateWithLifecycle()
     val synergyNudge by viewModel.synergyNudge.collectAsStateWithLifecycle()
     val focus by viewModel.focus.collectAsStateWithLifecycle()
+    val level by viewModel.level.collectAsStateWithLifecycle()
 
     val current = state
 
@@ -104,7 +105,7 @@ fun DashboardScreen(onOpenPillar: (String) -> Unit) {
         )
 
         Spacer(Modifier.height(30.dp))
-        StandingLine(runStatus, motivation)
+        StandingLine(runStatus, motivation, level)
         Spacer(Modifier.height(20.dp))
     }
 }
@@ -399,14 +400,16 @@ private fun Dot(colour: Color, filled: Boolean) {
 // ---------------------------------------------------------------------------------------
 
 @Composable
-private fun StandingLine(runStatus: RunStatus?, motivation: MotivationState?) {
+private fun StandingLine(runStatus: RunStatus?, motivation: MotivationState?, level: Int) {
     val chain = motivation?.headline
 
     Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.Line))
     Spacer(Modifier.height(14.dp))
     Text(
         buildString {
+            if (level > 0) append("Level $level")
             if (runStatus != null) {
+                if (isNotEmpty()) append(" · ")
                 append("Run ${runStatus.runNumber}")
                 if (runStatus.started && runStatus.sessionsThisRun > 0) {
                     append(" · session ${runStatus.sessionsThisRun}")

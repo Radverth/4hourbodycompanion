@@ -34,9 +34,13 @@ import com.tom.fourhourbody.domain.deck.CardKind
 import com.tom.fourhourbody.domain.deck.CardTier
 import com.tom.fourhourbody.domain.deck.Deck
 import com.tom.fourhourbody.domain.deck.DeckCard
+import com.tom.fourhourbody.domain.progress.Milestone
+import com.tom.fourhourbody.domain.progress.Milestones
+import com.tom.fourhourbody.domain.progress.Stats
 import com.tom.fourhourbody.domain.synergy.SynergyState
 import com.tom.fourhourbody.ui.common.rememberContainer
 import com.tom.fourhourbody.ui.theme.NumeralLarge
+import com.tom.fourhourbody.ui.theme.NumeralMedium
 import com.tom.fourhourbody.ui.theme.NumeralSmall
 import com.tom.fourhourbody.ui.theme.Palette
 import com.tom.fourhourbody.util.kgDisplay
@@ -56,6 +60,7 @@ fun DeckScreen() {
     val deck by viewModel.deck.collectAsStateWithLifecycle()
     val synergies by viewModel.synergies.collectAsStateWithLifecycle()
     val adherence by viewModel.adherence.collectAsStateWithLifecycle()
+    val stats by viewModel.stats.collectAsStateWithLifecycle()
 
     val current = deck
 
@@ -65,6 +70,23 @@ fun DeckScreen() {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item { Text("Your deck", style = MaterialTheme.typography.headlineMedium) }
+
+        item { CharacterSheet(stats) }
+
+        val quests = Milestones.questLog(stats)
+        if (quests.isNotEmpty()) {
+            item {
+                SectionLabel("QUESTS")
+                Text(
+                    "The nearest target on each track. Reaching one is a level, and every " +
+                        "level is a thing you did, not points you accumulated.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.TextSecondary
+                )
+            }
+            items(quests, key = { it.id }) { quest -> QuestRow(quest, stats) }
+            item { Spacer(Modifier.height(6.dp)) }
+        }
 
         if (current == null) {
             item { Text("Loading…", color = Palette.TextSecondary) }
@@ -344,5 +366,109 @@ private fun AdherenceBar(entry: PillarAdherence) {
                 )
             }
         }
+    }
+}
+
+/**
+ * Level, and what it is made of.
+ *
+ * The count of milestones is shown next to the level on purpose: "Level 7" on its own is the
+ * kind of number that could mean anything, and "7 of 16" says immediately that it is a
+ * fraction of a finite, listable set rather than a bar that goes up forever.
+ */
+@Composable
+private fun CharacterSheet(stats: Stats) {
+    val level = Milestones.level(stats)
+    val total = Milestones.ALL.size
+    val next = Milestones.nextUp(stats)
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Palette.EmberSurface)
+            .border(1.dp, Palette.EmberLine, RoundedCornerShape(16.dp))
+            .padding(18.dp)
+    ) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text("LEVEL", style = MaterialTheme.typography.labelSmall, color = Palette.EmberText)
+            Spacer(Modifier.size(8.dp))
+            Text("$level", style = NumeralLarge, color = Palette.Ember)
+            Spacer(Modifier.weight(1f))
+            Text(
+                "$level of $total milestones",
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.EmberText,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+        }
+
+        Spacer(Modifier.height(6.dp))
+        Text(
+            when {
+                level == 0 -> "Nothing passed yet. The first one is a single logged session."
+                next == null -> "Every milestone passed. There is nothing left for the app " +
+                    "to ask of you."
+                else -> "Next: ${next.title.lowercase()} — ${next.detail}"
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = Palette.EmberText
+        )
+    }
+}
+
+/** One quest: what it is, how far along, and how far along in plain numbers. */
+@Composable
+private fun QuestRow(quest: Milestone, stats: Stats) {
+    val current = stats.current(quest.track)
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Palette.Surface)
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                quest.title,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f)
+            )
+            Text("$current", style = NumeralMedium, color = Palette.Ember)
+            Text(
+                " / ${quest.target}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextTertiary,
+                modifier = Modifier.padding(bottom = 3.dp)
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(5.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(Palette.DotEmpty)
+        ) {
+            val fraction = quest.fraction(stats)
+            if (fraction > 0f) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(fraction)
+                        .height(5.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Palette.Ember)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Text(
+            quest.detail,
+            style = MaterialTheme.typography.bodySmall,
+            color = Palette.TextSecondary
+        )
     }
 }
