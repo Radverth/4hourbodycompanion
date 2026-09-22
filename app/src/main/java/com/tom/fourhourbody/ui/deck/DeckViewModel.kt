@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.tom.fourhourbody.AppContainer
 import com.tom.fourhourbody.data.repo.DashboardRepository
+import com.tom.fourhourbody.data.repo.ProgressRepository
 import com.tom.fourhourbody.data.repo.SettingsRepository
 import com.tom.fourhourbody.data.repo.TrainingRepository
 import com.tom.fourhourbody.domain.deck.CardKind
@@ -14,6 +15,7 @@ import com.tom.fourhourbody.domain.deck.Deck
 import com.tom.fourhourbody.domain.deck.DeckBuilder
 import com.tom.fourhourbody.domain.adherence.PillarAdherence
 import com.tom.fourhourbody.domain.deck.DeckCard
+import com.tom.fourhourbody.domain.progress.Stats
 import com.tom.fourhourbody.domain.synergy.SynergyState
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +27,8 @@ import java.time.LocalDate
 class DeckViewModel(
     private val settingsRepository: SettingsRepository,
     private val trainingRepository: TrainingRepository,
-    dashboardRepository: DashboardRepository
+    dashboardRepository: DashboardRepository,
+    progressRepository: ProgressRepository
 ) : ViewModel() {
 
     /**
@@ -46,6 +49,10 @@ class DeckViewModel(
             logs = logs
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** The character sheet: level is the count of milestones passed, nothing more. */
+    val stats: StateFlow<Stats> = progressRepository.stats(LocalDate.now())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Stats())
 
     /**
      * Adherence, which used to sit under Today. It is review, not action, so it belongs on
@@ -83,7 +90,8 @@ class DeckViewModel(
                 DeckViewModel(
                     container.settingsRepository,
                     container.trainingRepository,
-                    container.dashboardRepository
+                    container.dashboardRepository,
+                    container.progressRepository
                 )
             }
         }

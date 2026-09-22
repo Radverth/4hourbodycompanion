@@ -13,10 +13,12 @@ import com.tom.fourhourbody.data.repo.DashboardState
 import com.tom.fourhourbody.data.repo.MotivationRepository
 import com.tom.fourhourbody.data.repo.MotivationState
 import com.tom.fourhourbody.data.repo.NutritionRepository
+import com.tom.fourhourbody.data.repo.ProgressRepository
 import com.tom.fourhourbody.data.repo.SettingsRepository
 import com.tom.fourhourbody.data.repo.RunStatus
 import com.tom.fourhourbody.data.repo.TrainingRepository
 import com.tom.fourhourbody.domain.SleepNight
+import com.tom.fourhourbody.domain.progress.Milestones
 import com.tom.fourhourbody.domain.today.Focus
 import com.tom.fourhourbody.domain.today.FocusInputs
 import com.tom.fourhourbody.domain.today.FocusRules
@@ -42,6 +44,7 @@ class DashboardViewModel(
     private val trainingRepository: TrainingRepository,
     private val nutritionRepository: NutritionRepository,
     private val creatineRepository: CreatineRepository,
+    progressRepository: ProgressRepository,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
@@ -56,6 +59,11 @@ class DashboardViewModel(
 
     private val _nextWeights = MutableStateFlow<List<NextWeight>>(emptyList())
     val nextWeights: StateFlow<List<NextWeight>> = _nextWeights.asStateFlow()
+
+    /** Level, for the standing line. The deck is where it is broken down. */
+    val level: StateFlow<Int> = progressRepository.stats(today)
+        .map(Milestones::level)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     /** Always present, so the header never has to render nothing. */
     val runStatus: StateFlow<RunStatus?> = trainingRepository.runStatus()
@@ -142,6 +150,7 @@ class DashboardViewModel(
                     container.trainingRepository,
                     container.nutritionRepository,
                     container.creatineRepository,
+                    container.progressRepository,
                     container.settingsRepository
                 )
             }

@@ -9,6 +9,7 @@ import com.tom.fourhourbody.data.repo.DashboardRepository
 import com.tom.fourhourbody.data.repo.MeasurementRepository
 import com.tom.fourhourbody.data.repo.MotivationRepository
 import com.tom.fourhourbody.data.repo.NutritionRepository
+import com.tom.fourhourbody.data.repo.ProgressRepository
 import com.tom.fourhourbody.data.repo.SettingsRepository
 import com.tom.fourhourbody.data.repo.SleepRepository
 import com.tom.fourhourbody.data.repo.StretchRepository
@@ -41,6 +42,13 @@ class AppContainer(private val appContext: Context) {
             nutritionRepository = nutritionRepository,
             sleepRepository = sleepRepository,
             creatineRepository = creatineRepository
+        )
+    }
+
+    val progressRepository by lazy {
+        ProgressRepository(
+            trainingRepository = trainingRepository,
+            motivationRepository = motivationRepository
         )
     }
 
