@@ -333,20 +333,24 @@ private fun SynergyRow(state: SynergyState) {
 private fun AdherenceBar(entry: PillarAdherence) {
     val colour = Palette.of(entry.pillar)
     Column(Modifier.fillMaxWidth()) {
+        // The label and the detail used to share one row, the label weighted and the detail
+        // unconstrained — so the detail took its full width and squeezed "Static stretches"
+        // narrower than its longest word, which breaks text one character per line. Giving
+        // the detail its own line removes the competition rather than tuning around it.
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 entry.pillar.label,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f)
             )
-            Text(
-                entry.detail,
-                style = MaterialTheme.typography.bodySmall,
-                color = Palette.TextTertiary
-            )
-            Spacer(Modifier.size(10.dp))
             Text("${entry.percent}%", style = NumeralSmall)
         }
+        Spacer(Modifier.height(2.dp))
+        Text(
+            entry.detail,
+            style = MaterialTheme.typography.bodySmall,
+            color = Palette.TextTertiary
+        )
         Spacer(Modifier.height(6.dp))
         Box(
             Modifier
