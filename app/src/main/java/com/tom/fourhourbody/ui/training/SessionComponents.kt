@@ -89,9 +89,11 @@ fun CountdownBlock(
  * of a set, and the book is explicit that a slower cadence near failure is expected, not a
  * fault, so counting cycles would misrepresent the set it's timing.
  *
- * The cadence guide underneath is a pacing aid only: an audible cue on every up/down reversal,
- * on the book's own worked example of 10 seconds up / 10 seconds down. Nothing reads it back —
- * "as slow as you can without stopping" is a feel, not a number this app can verify.
+ * The cadence guide underneath is a pacing aid only, on the book's own worked example of 10
+ * seconds up / 10 seconds down. Nothing reads it back — "as slow as you can without stopping"
+ * is a feel, not a number this app can verify — so it exists purely so eyes-closed, mid-set
+ * effort still knows which way to move: a distinct tone and vibration on every reversal, one
+ * pair for "start lifting" and a different pair for "start lowering."
  */
 @Composable
 fun WorkingSetTimer(
@@ -112,7 +114,7 @@ fun WorkingSetTimer(
             elapsedMs = tick
             val nowGoingUp = (tick % cycleMs) < upMs
             if (wasGoingUp != nowGoingUp) {
-                Feedback.turnTone(context)
+                if (nowGoingUp) Feedback.ascendTone(context) else Feedback.descendTone(context)
                 wasGoingUp = nowGoingUp
             }
         }
@@ -139,7 +141,16 @@ fun WorkingSetTimer(
         )
         Spacer(Modifier.height(16.dp))
         if (!running) {
-            Button(onClick = { running = true; elapsedMs = 0L }, modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = {
+                    running = true
+                    elapsedMs = 0L
+                    // Every set starts on the way up; without this a set that starts right
+                    // after one that ended mid-descent would fire an immediate, spurious cue.
+                    wasGoingUp = true
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("Start set")
             }
         } else {

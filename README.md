@@ -69,6 +69,9 @@ app/src/test/    unit tests for the protocol rules
 - **The working set is a stopwatch, not a rep counter.** Counting reps would need a fixed
   cadence to convert into a time, and the book is explicit that the cadence slows near
   failure — so the set is timed directly instead.
+- **The cadence guide is audible, not just on-screen**, with a different tone and vibration
+  pattern for "start lifting" than for "start lowering" — you cannot read a phone mid-set
+  without breaking form, so the cue that tells you which way to move has to work eyes-closed.
 - **Every exercise in a session always runs.** Nothing in the book supports stopping a session
   early over one exercise's result; only the frequency for the *next* block changes.
 - **Room migrations from the first schema change onward** — schemas are exported, and there is

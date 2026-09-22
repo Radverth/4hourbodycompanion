@@ -25,31 +25,55 @@ object Feedback {
     }
 
     /**
-     * The turn in the cadence guide: stop lifting, start lowering (or vice versa).
+     * The turn in the cadence guide, up: start lifting.
      *
      * Under a slow cadence you cannot watch a screen and keep form, so the cue has to be
-     * audible.
+     * audible — and it has to be distinguishable from [descendTone] without looking, so the
+     * two are a different pitch and a different vibration pattern (one tap here, two on the
+     * way down).
      */
-    fun turnTone(context: Context) {
+    fun ascendTone(context: Context) {
         runCatching {
             ToneGenerator(AudioManager.STREAM_NOTIFICATION, 75).apply {
-                startTone(ToneGenerator.TONE_PROP_PROMPT, 120)
+                startTone(ToneGenerator.TONE_PROP_ACK, 120)
                 android.os.Handler(context.mainLooper).postDelayed({ release() }, 260)
             }
         }
         vibrate(context, 40)
     }
 
+    /** The turn in the cadence guide, down: start lowering. See [ascendTone]. */
+    fun descendTone(context: Context) {
+        runCatching {
+            ToneGenerator(AudioManager.STREAM_NOTIFICATION, 75).apply {
+                startTone(ToneGenerator.TONE_PROP_PROMPT, 120)
+                android.os.Handler(context.mainLooper).postDelayed({ release() }, 260)
+            }
+        }
+        vibrate(context, longArrayOf(0, 40, 60, 40))
+    }
+
     private fun vibrate(context: Context, ms: Long) {
-        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val vibrator = vibratorOf(context)
+        runCatching {
+            vibrator?.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE))
+        }
+    }
+
+    /** [pattern]: alternating off/on durations in ms, starting with an initial delay. */
+    private fun vibrate(context: Context, pattern: LongArray) {
+        val vibrator = vibratorOf(context)
+        runCatching {
+            vibrator?.vibrate(VibrationEffect.createWaveform(pattern, -1))
+        }
+    }
+
+    private fun vibratorOf(context: Context): Vibrator? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)
                 ?.defaultVibrator
         } else {
             @Suppress("DEPRECATION")
             context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
         }
-        runCatching {
-            vibrator?.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE))
-        }
-    }
 }
