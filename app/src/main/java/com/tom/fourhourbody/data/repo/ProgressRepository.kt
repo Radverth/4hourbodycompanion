@@ -12,26 +12,21 @@ import java.time.LocalDate
  * It lives in its own repository rather than inside a view model because both Today and the
  * deck show the level, and a number that appears twice should be computed once.
  */
-class ProgressRepository(
-    private val trainingRepository: TrainingRepository,
-    private val motivationRepository: MotivationRepository
-) {
+class ProgressRepository(private val trainingRepository: TrainingRepository) {
 
     fun stats(today: LocalDate): Flow<Stats> = combine(
         trainingRepository.sessions,
         trainingRepository.runHistory(today),
-        trainingRepository.completedLogs,
-        motivationRepository.state(today)
-    ) { sessions, runs, logs, motivation ->
+        trainingRepository.completedLogs
+    ) { sessions, runs, logs ->
         val finished = runs.filter { it.isComplete }
         Stats(
             sessionsCompleted = sessions.count { it.completed },
             runsCompleted = finished.size,
-            // Only closed runs count towards what is banked; a run still going could stall
+            // Only closed runs count towards what is banked; a run still going could plateau
             // tomorrow and its gains are already visible on the training screen.
             totalBankedKg = finished.sumOf { it.totalGainKg },
-            bestGainOnOneLiftKg = bestGainOnOneLift(logs),
-            bestDietChain = motivation.nutrition.best
+            bestGainOnOneLiftKg = bestGainOnOneLift(logs)
         )
     }
 

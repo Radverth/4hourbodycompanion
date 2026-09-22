@@ -24,23 +24,11 @@ object Feedback {
         vibrate(context, 120)
     }
 
-    /** Used by the Tabata timer, where a work/rest transition genuinely needs a cue. */
-    fun transitionTone(context: Context) {
-        runCatching {
-            ToneGenerator(AudioManager.STREAM_NOTIFICATION, 70).apply {
-                startTone(ToneGenerator.TONE_PROP_ACK, 150)
-                android.os.Handler(context.mainLooper).postDelayed({ release() }, 300)
-            }
-        }
-        vibrate(context, 60)
-    }
-
     /**
-     * The turn at the top of a rep: stop lifting, start lowering.
+     * The turn in the cadence guide: stop lifting, start lowering (or vice versa).
      *
-     * Under a 5s/5s tempo you cannot watch a screen and keep form, so the cue has to be
-     * audible. It is pitched apart from [transitionTone] on purpose — one says "reverse",
-     * the other says "that is a rep" — because hearing which is which is the whole point.
+     * Under a slow cadence you cannot watch a screen and keep form, so the cue has to be
+     * audible.
      */
     fun turnTone(context: Context) {
         runCatching {

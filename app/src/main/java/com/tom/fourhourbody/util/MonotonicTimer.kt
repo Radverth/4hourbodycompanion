@@ -9,8 +9,8 @@ import kotlinx.coroutines.isActive
 
 /**
  * Timing is read from [SystemClock.elapsedRealtime] on every emission rather than accumulated
- * from a Handler loop, so the tempo guide and the Tabata timer stay accurate with the screen
- * off or the device locked — a wall-clock loop drifts, and deep sleep stops it dead.
+ * from a Handler loop, so the working-set stopwatch and the rest countdown stay accurate with
+ * the screen off or the device locked — a wall-clock loop drifts, and deep sleep stops it dead.
  */
 object MonotonicTimer {
 

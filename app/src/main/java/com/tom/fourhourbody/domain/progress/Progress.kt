@@ -17,8 +17,7 @@ enum class Track(val label: String) {
     SESSIONS("Sessions"),
     RUNS("Runs"),
     BANKED("Weight banked"),
-    LIFT("One lift"),
-    DIET("Diet chain")
+    LIFT("One lift")
 }
 
 /** Everything the milestones are measured against, all of it read from the log. */
@@ -26,15 +25,13 @@ data class Stats(
     val sessionsCompleted: Int = 0,
     val runsCompleted: Int = 0,
     val totalBankedKg: Double = 0.0,
-    val bestGainOnOneLiftKg: Double = 0.0,
-    val bestDietChain: Int = 0
+    val bestGainOnOneLiftKg: Double = 0.0
 ) {
     fun current(track: Track): Int = when (track) {
         Track.SESSIONS -> sessionsCompleted
         Track.RUNS -> runsCompleted
         Track.BANKED -> totalBankedKg.toInt()
         Track.LIFT -> bestGainOnOneLiftKg.toInt()
-        Track.DIET -> bestDietChain
     }
 }
 
@@ -73,13 +70,13 @@ object Milestones {
         ),
         Milestone(
             "session_40", Track.SESSIONS, 40, "Forty sessions",
-            "At two a week that is most of a year of showing up."
+            "At once a week that is most of a year of showing up."
         ),
 
         Milestone(
             "run_1", Track.RUNS, 1, "Close a run",
-            "A stall is how a block is meant to end. Reaching one means you pushed until " +
-                "the protocol said stop."
+            "A plateau is how a block is meant to end. Reaching one means you pushed until " +
+                "the protocol said rest more."
         ),
         Milestone(
             "run_3", Track.RUNS, 3, "Three runs closed",
@@ -115,20 +112,8 @@ object Milestones {
         ),
         Milestone(
             "lift_60", Track.LIFT, 60, "+60 kg on one lift",
-            "Occam's Protocol working exactly as written, over a long enough run of blocks."
-        ),
-
-        Milestone(
-            "diet_7", Track.DIET, 7, "Seven days on plan",
-            "One full week including the days it was inconvenient."
-        ),
-        Milestone(
-            "diet_21", Track.DIET, 21, "Twenty-one days on plan",
-            "Three weeks of slow-carb, cheat days included, without the chain breaking."
-        ),
-        Milestone(
-            "diet_60", Track.DIET, 60, "Sixty days on plan",
-            "At this length it has stopped being a diet you are on."
+            "The Big Five working exactly as written: beat the clock, bank the weight, " +
+                "repeat over enough runs."
         )
     )
 
@@ -167,24 +152,15 @@ data class Attribute(
 object Attributes {
 
     /**
-     * One attribute per pillar, so the block covers the whole protocol rather than the parts
-     * that happened to be easy to count.
+     * Four attributes, all of them training-native — there is only one pillar left, so the
+     * sheet no longer borrows counts from other trackers to fill out a row.
      *
-     * @param sleepNights nights on protocol in the adherence window.
-     * @param coldSessions cold exposures logged in the adherence window.
-     * @param stretchDays days with a stretch logged in the adherence window.
+     * @param adherencePercent completed vs. expected sessions in the adherence window.
      */
-    fun of(
-        stats: Stats,
-        sleepNights: Int,
-        coldSessions: Int,
-        stretchDays: Int
-    ): List<Attribute> = listOf(
+    fun of(stats: Stats, adherencePercent: Int): List<Attribute> = listOf(
         Attribute("Strength", stats.totalBankedKg.toInt(), "kg banked, closed runs"),
         Attribute("Endurance", stats.sessionsCompleted, "sessions completed"),
-        Attribute("Discipline", stats.bestDietChain, "longest diet chain"),
-        Attribute("Mobility", stretchDays, "days stretched, 30d"),
-        Attribute("Recovery", sleepNights, "nights on protocol, 30d"),
-        Attribute("Resilience", coldSessions, "cold exposures, 30d")
+        Attribute("Consistency", adherencePercent, "% of scheduled sessions, 30d"),
+        Attribute("Best lift", stats.bestGainOnOneLiftKg.toInt(), "kg gained on one exercise")
     )
 }

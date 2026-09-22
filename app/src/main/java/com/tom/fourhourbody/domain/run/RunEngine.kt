@@ -26,7 +26,7 @@ data class RunSummary(
     val sessions: Int,
     val days: Long,
     val gains: List<ExerciseGain>,
-    val stalledOn: String?,
+    val plateauedOn: String?,
     val restDaysBefore: Int,
     val restDaysAfter: Int,
     val endedBy: RunEnd?
@@ -40,10 +40,11 @@ data class RunSummary(
 /**
  * Reads runs out of the training log.
  *
- * A stall is not a failure state and the summary should never read like one. Missing a target
- * by more than a rep is the protocol's own signal that the gap between sessions is now too
- * short — the block did its job, the weights it earned are kept, and the next block runs on
- * more rest. Ending a run is the mechanism working, not the user falling short.
+ * A plateau is not a failure state and the summary should never read like one. Failing to beat
+ * a previous time under load at the same weight is the protocol's own signal that the gap
+ * between sessions is now too short — the block did its job, the weights it earned are kept,
+ * and the next block runs on more rest. Ending a run is the mechanism working, not the user
+ * falling short.
  */
 object RunEngine {
 
@@ -68,19 +69,15 @@ object RunEngine {
             }
             .sortedByDescending { it.gainedKg }
 
-        val stalledSession = completed.lastOrNull { it.stalled }
-        val stalledOn = stalledSession?.let { session ->
-            logs.filter { it.sessionId == session.id }
-                .firstOrNull { it.reps < it.targetReps - 1 }
-                ?.exerciseName
-        }
+        val plateauedSession = completed.lastOrNull { it.plateaued }
+        val plateauedOn = plateauedSession?.plateauedOnExercise
 
         return RunSummary(
             runNumber = run.runNumber,
             sessions = completed.size,
             days = ChronoUnit.DAYS.between(run.startDate, run.endDate ?: today) + 1,
             gains = gains,
-            stalledOn = stalledOn,
+            plateauedOn = plateauedOn,
             restDaysBefore = run.restDaysAtStart,
             restDaysAfter = run.restDaysAtEnd ?: run.restDaysAtStart,
             endedBy = run.endedBy

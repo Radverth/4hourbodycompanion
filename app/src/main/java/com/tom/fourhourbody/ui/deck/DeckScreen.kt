@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,15 +36,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.tom.fourhourbody.domain.deck.CardKind
 import com.tom.fourhourbody.domain.deck.CardTier
-import com.tom.fourhourbody.domain.deck.Deck
 import com.tom.fourhourbody.domain.deck.DeckCard
 import com.tom.fourhourbody.domain.progress.Attribute
 import com.tom.fourhourbody.domain.progress.Milestone
 import com.tom.fourhourbody.domain.progress.Milestones
 import com.tom.fourhourbody.domain.progress.Stats
-import com.tom.fourhourbody.domain.synergy.SynergyState
 import com.tom.fourhourbody.ui.common.rememberContainer
 import com.tom.fourhourbody.ui.theme.Palette
 import com.tom.fourhourbody.ui.theme.PanelShape
@@ -72,7 +68,6 @@ fun DeckScreen() {
     val container = rememberContainer()
     val viewModel: DeckViewModel = viewModel(factory = DeckViewModel.factory(container))
     val deck by viewModel.deck.collectAsStateWithLifecycle()
-    val synergies by viewModel.synergies.collectAsStateWithLifecycle()
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val attributes by viewModel.attributes.collectAsStateWithLifecycle()
 
@@ -99,16 +94,8 @@ fun DeckScreen() {
             if (current != null) {
                 item {
                     Panel("LOADOUT") {
-                        current.of(CardKind.EXERCISE).forEach { card ->
+                        current.cards.forEach { card ->
                             ItemRow(card) { inspecting = card }
-                        }
-                    }
-                }
-
-                item {
-                    Panel("PROTOCOLS") {
-                        current.of(CardKind.PILLAR).forEach { card ->
-                            ItemRow(card) { viewModel.toggle(card) }
                         }
                     }
                 }
@@ -122,8 +109,6 @@ fun DeckScreen() {
                     }
                 }
             }
-
-            combosPanel(synergies)
         }
     }
 
@@ -178,7 +163,7 @@ private fun LevelPlate(stats: Stats) {
             }
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
-                Text("OCCAM", style = RunicTitle, color = Palette.Parchment)
+                Text("BIG FIVE", style = RunicTitle, color = Palette.Parchment)
                 Spacer(Modifier.height(3.dp))
                 Text(
                     "$level of ${Milestones.ALL.size} marks earned",
@@ -312,7 +297,7 @@ private fun ItemTooltip(card: DeckCard, onDismiss: () -> Unit) {
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                if (card.kind == CardKind.PILLAR) "Protocol" else "Strength slot",
+                "Strength slot",
                 style = MaterialTheme.typography.bodySmall,
                 color = Palette.ParchmentFaint,
                 textAlign = TextAlign.Center,
@@ -392,46 +377,5 @@ private fun QuestRow(quest: Milestone, stats: Stats) {
             style = MaterialTheme.typography.bodySmall,
             color = Palette.ParchmentFaint
         )
-    }
-}
-
-private fun LazyListScope.combosPanel(synergies: List<SynergyState>) {
-    if (synergies.isEmpty()) return
-    item {
-        Panel("COMBOS") {
-            synergies.forEach { state ->
-                val live = state.halfOpen
-                Column(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Gem(
-                            filled = state.firedToday || live,
-                            colour = if (live) Palette.Ember else Palette.BrassDim
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            state.synergy.name,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Palette.Parchment,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            when {
-                                state.firedToday -> "TODAY"
-                                state.everFired -> "${state.timesInWindow}×"
-                                else -> "—"
-                            },
-                            style = RunicLabel,
-                            color = if (state.firedToday) Palette.Ember else Palette.ParchmentFaint
-                        )
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        if (live) state.synergy.prompt else state.synergy.what,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (live) Palette.Ember else Palette.ParchmentFaint
-                    )
-                }
-            }
-        }
     }
 }

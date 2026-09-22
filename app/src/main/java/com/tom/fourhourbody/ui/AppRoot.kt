@@ -20,28 +20,16 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
-import com.tom.fourhourbody.data.entity.StretchRoutine
-import com.tom.fourhourbody.data.reference.ReferenceDoc
-import com.tom.fourhourbody.ui.cold.ColdScreen
-import com.tom.fourhourbody.ui.creatine.CreatineScreen
 import com.tom.fourhourbody.ui.dashboard.DashboardScreen
 import com.tom.fourhourbody.ui.deck.DeckScreen
 import com.tom.fourhourbody.ui.more.MoreScreen
 import com.tom.fourhourbody.ui.nav.Routes
-import com.tom.fourhourbody.ui.nutrition.NutritionScreen
-import com.tom.fourhourbody.ui.nutrition.ReferenceScreen
 import com.tom.fourhourbody.ui.progress.ProgressScreen
 import com.tom.fourhourbody.ui.settings.SettingsScreen
-import com.tom.fourhourbody.ui.sleep.SleepScreen
-import com.tom.fourhourbody.ui.stretches.StretchConfigScreen
-import com.tom.fourhourbody.ui.stretches.StretchHubScreen
-import com.tom.fourhourbody.ui.stretches.StretchRunnerScreen
 import com.tom.fourhourbody.ui.training.ExerciseConfigScreen
 import com.tom.fourhourbody.ui.training.SessionHistoryScreen
 import com.tom.fourhourbody.ui.training.SessionScreen
@@ -56,8 +44,8 @@ private val bottomItems = listOf(
     BottomItem(Routes.MORE, "More", Icons.Filled.MoreVert)
 )
 
-/** Full-screen flows: a timer running under a bottom bar invites a mis-tap. */
-private val fullScreenRoutes = setOf(Routes.SESSION, Routes.MOBILITY, Routes.DESK_RESET)
+/** Full-screen flow: a timer running under a bottom bar invites a mis-tap. */
+private val fullScreenRoutes = setOf(Routes.SESSION)
 
 @Composable
 fun AppRoot(pendingRoute: String?, onRouteConsumed: () -> Unit) {
@@ -83,7 +71,6 @@ fun AppRoot(pendingRoute: String?, onRouteConsumed: () -> Unit) {
                             selected = currentRoute == item.route,
                             onClick = { navController.navigateTab(item.route) },
                             icon = { Icon(item.icon, contentDescription = item.label) },
-                            // Five items on a narrow phone wrapped "Stretch" onto two lines.
                             label = {
                                 Text(
                                     item.label,
@@ -128,57 +115,6 @@ fun AppRoot(pendingRoute: String?, onRouteConsumed: () -> Unit) {
                 ExerciseConfigScreen(onBack = { navController.popBackStack() })
             }
 
-            composable(Routes.STRETCHES) {
-                StretchHubScreen(
-                    onOpenMobility = { navController.navigate(Routes.MOBILITY) },
-                    onOpenDeskReset = { weekly -> navController.navigate(Routes.deskReset(weekly)) },
-                    onOpenConfig = { navController.navigate(Routes.STRETCH_CONFIG) }
-                )
-            }
-            composable(Routes.MOBILITY) {
-                StretchRunnerScreen(
-                    routine = StretchRoutine.REST_DAY_MOBILITY,
-                    weekly = false,
-                    onExit = { navController.popBackStack() }
-                )
-            }
-            composable(
-                route = "${Routes.DESK_RESET}?weekly={weekly}",
-                arguments = listOf(
-                    navArgument("weekly") {
-                        type = NavType.BoolType
-                        defaultValue = false
-                    }
-                )
-            ) { entry ->
-                StretchRunnerScreen(
-                    routine = StretchRoutine.DESK_RESET,
-                    weekly = entry.arguments?.getBoolean("weekly") ?: false,
-                    onExit = { navController.popBackStack() }
-                )
-            }
-            composable(Routes.STRETCH_CONFIG) {
-                StretchConfigScreen(onBack = { navController.popBackStack() })
-            }
-
-            composable(Routes.NUTRITION) {
-                NutritionScreen(
-                    onOpenReference = { doc -> navController.navigate(Routes.reference(doc.name)) }
-                )
-            }
-            composable(
-                route = "${Routes.REFERENCE}/{doc}",
-                arguments = listOf(navArgument("doc") { type = NavType.StringType })
-            ) { entry ->
-                val docName = entry.arguments?.getString("doc") ?: ReferenceDoc.SLOW_CARB_RULES.name
-                val doc = runCatching { ReferenceDoc.valueOf(docName) }
-                    .getOrDefault(ReferenceDoc.SLOW_CARB_RULES)
-                ReferenceScreen(doc = doc, onBack = { navController.popBackStack() })
-            }
-
-            composable(Routes.SLEEP) { SleepScreen() }
-            composable(Routes.COLD) { ColdScreen() }
-            composable(Routes.CREATINE) { CreatineScreen() }
             composable(Routes.DECK) { DeckScreen() }
             composable(Routes.PROGRESS) { ProgressScreen() }
 

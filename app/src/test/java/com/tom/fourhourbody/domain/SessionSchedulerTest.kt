@@ -12,38 +12,38 @@ class SessionSchedulerTest {
     private val monday = LocalDate.of(2026, 1, 5)
 
     @Test
-    fun `two rest days means the next session is three days later`() {
-        assertEquals(monday.plusDays(3), SessionScheduler.nextSessionDate(monday, 2))
+    fun `six rest days means the next session is seven days later`() {
+        assertEquals(monday.plusDays(7), SessionScheduler.nextSessionDate(monday, 6))
     }
 
     @Test
-    fun `a stall pushes the gap out by a day`() {
-        assertEquals(3, SessionScheduler.restDaysAfterStall(2))
-        assertEquals(monday.plusDays(4), SessionScheduler.nextSessionDate(monday, 3))
+    fun `a plateau pushes the gap out by a day`() {
+        assertEquals(7, SessionScheduler.restDaysAfterPlateau(6))
+        assertEquals(monday.plusDays(8), SessionScheduler.nextSessionDate(monday, 7))
     }
 
     @Test
     fun `nothing logged yet means a session is due`() {
-        assertTrue(SessionScheduler.isSessionDue(monday, null, 2))
+        assertTrue(SessionScheduler.isSessionDue(monday, null, 6))
     }
 
     @Test
     fun `a session is not due until the gap has passed`() {
-        assertFalse(SessionScheduler.isSessionDue(monday.plusDays(2), monday, 2))
-        assertTrue(SessionScheduler.isSessionDue(monday.plusDays(3), monday, 2))
-        assertTrue(SessionScheduler.isSessionDue(monday.plusDays(9), monday, 2))
+        assertFalse(SessionScheduler.isSessionDue(monday.plusDays(6), monday, 6))
+        assertTrue(SessionScheduler.isSessionDue(monday.plusDays(7), monday, 6))
+        assertTrue(SessionScheduler.isSessionDue(monday.plusDays(20), monday, 6))
     }
 
     @Test
     fun `days until the next session never goes negative`() {
-        assertEquals(3L, SessionScheduler.daysUntilNextSession(monday, monday, 2))
-        assertEquals(0L, SessionScheduler.daysUntilNextSession(monday.plusDays(10), monday, 2))
+        assertEquals(7L, SessionScheduler.daysUntilNextSession(monday, monday, 6))
+        assertEquals(0L, SessionScheduler.daysUntilNextSession(monday.plusDays(20), monday, 6))
     }
 
     @Test
     fun `expected sessions shrink as the gap grows`() {
-        assertEquals(9, SessionScheduler.expectedSessionsIn(28, 2))
-        assertEquals(7, SessionScheduler.expectedSessionsIn(28, 3))
-        assertEquals(5, SessionScheduler.expectedSessionsIn(28, 4))
+        assertEquals(4, SessionScheduler.expectedSessionsIn(28, 6))
+        assertEquals(3, SessionScheduler.expectedSessionsIn(28, 8))
+        assertEquals(2, SessionScheduler.expectedSessionsIn(28, 13))
     }
 }

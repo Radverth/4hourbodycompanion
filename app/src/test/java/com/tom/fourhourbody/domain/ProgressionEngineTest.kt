@@ -2,7 +2,6 @@ package com.tom.fourhourbody.domain
 
 import com.tom.fourhourbody.domain.training.ExerciseResult
 import com.tom.fourhourbody.domain.training.ProgressionEngine
-import com.tom.fourhourbody.domain.training.TrainingConstants
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -12,95 +11,82 @@ import org.junit.Test
 class ProgressionEngineTest {
 
     @Test
-    fun `hitting the target is not a stall`() {
-        assertFalse(ProgressionEngine.isStall(reps = 7, targetReps = 7))
-        assertFalse(ProgressionEngine.isStall(reps = 9, targetReps = 7))
+    fun `progression takes five percent, rounded up to the nearest half kg`() {
+        // 40 kg + 5% = 42 kg exactly.
+        assertEquals(42.0, ProgressionEngine.suggestNextWeight(40.0), 0.001)
+        // 41 kg + 5% = 43.05 kg, rounds up to 43.5.
+        assertEquals(43.5, ProgressionEngine.suggestNextWeight(41.0), 0.001)
     }
 
     @Test
-    fun `one rep short is not a stall`() {
-        assertFalse(ProgressionEngine.isStall(reps = 6, targetReps = 7))
-        assertFalse(ProgressionEngine.isStall(reps = 9, targetReps = 10))
-    }
-
-    @Test
-    fun `more than one rep short is a stall`() {
-        assertTrue(ProgressionEngine.isStall(reps = 5, targetReps = 7))
-        assertTrue(ProgressionEngine.isStall(reps = 8, targetReps = 10))
-    }
-
-    @Test
-    fun `progression takes ten pounds when ten percent is smaller`() {
-        // 40 kg: +10 lb is 4.54 kg, +10% is 4.0 kg, so the pound step wins.
-        val next = ProgressionEngine.suggestNextWeight(40.0)
-        assertEquals(45.0, next, 0.001)
-    }
-
-    @Test
-    fun `progression takes ten percent when it is larger`() {
-        // 100 kg: +10% is 10 kg, well past the 4.54 kg pound step.
-        val next = ProgressionEngine.suggestNextWeight(100.0)
-        assertEquals(110.0, next, 0.001)
-    }
-
-    @Test
-    fun `progression rounds up so the step is never undercut`() {
-        val next = ProgressionEngine.suggestNextWeight(41.0)
-        assertTrue(next >= 41.0 + TrainingConstants.TEN_POUNDS_KG)
-        assertEquals(46.0, next, 0.001)
-    }
-
-    @Test
-    fun `a session where everything hits suggests an increase for each exercise`() {
+    fun `a set past the ceiling earns a bump, one under it does not`() {
         val evaluation = ProgressionEngine.evaluate(
             listOf(
-                ExerciseResult("Leg press", 100.0, 10, 10),
-                ExerciseResult("Chest press", 40.0, 8, 7)
+                ExerciseResult("Leg press", weightKg = 100.0, tulSec = 95),
+                ExerciseResult("Chest press", weightKg = 40.0, tulSec = 60)
             )
         )
 
-        assertFalse(evaluation.stalled)
-        assertNull(evaluation.stalledOn)
-        assertEquals(110.0, evaluation.nextWeights.getValue("Leg press"), 0.001)
-        assertEquals(45.0, evaluation.nextWeights.getValue("Chest press"), 0.001)
+        assertFalse(evaluation.plateaued)
+        assertNull(evaluation.plateauedOn)
+        assertEquals(105.0, evaluation.nextWeights.getValue("Leg press"), 0.001)
+        assertFalse(evaluation.nextWeights.containsKey("Chest press"))
     }
 
     @Test
-    fun `a stall suppresses every suggestion and names the exercise`() {
+    fun `same or less weight with a worse time under load is a plateau`() {
         val evaluation = ProgressionEngine.evaluate(
             listOf(
-                ExerciseResult("Leg press", 100.0, 10, 10),
-                ExerciseResult("Chest press", 40.0, 4, 7)
+                ExerciseResult(
+                    "Chest press",
+                    weightKg = 40.0,
+                    tulSec = 50,
+                    previousWeightKg = 40.0,
+                    previousTulSec = 65
+                )
             )
         )
 
-        assertTrue(evaluation.stalled)
-        assertEquals("Chest press", evaluation.stalledOn)
-        assertTrue(evaluation.nextWeights.isEmpty())
+        assertTrue(evaluation.plateaued)
+        assertEquals("Chest press", evaluation.plateauedOn)
     }
 
     @Test
-    fun `one rep short holds the weight rather than advancing it`() {
-        val evaluation = ProgressionEngine.evaluate(
-            listOf(ExerciseResult("Chest press", 40.0, 6, 7))
+    fun `beating the previous time under load is not a plateau even at the same weight`() {
+        val result = ExerciseResult(
+            "Chest press",
+            weightKg = 40.0,
+            tulSec = 70,
+            previousWeightKg = 40.0,
+            previousTulSec = 65
         )
-
-        assertFalse(evaluation.stalled)
-        assertTrue(evaluation.nextWeights.isEmpty())
+        assertFalse(result.isPlateau)
     }
 
     @Test
-    fun `opening weight steps up only after a hit`() {
-        assertEquals(
-            45.0,
-            ProgressionEngine.openingWeightFor(40.0, 7, 7)!!,
-            0.001
+    fun `more weight than last time is never a plateau, even with a shorter time under load`() {
+        // Heavier weight legitimately buys a shorter time to failure — that is progress, not
+        // a plateau, so the weight-increase case is excluded outright.
+        val result = ExerciseResult(
+            "Chest press",
+            weightKg = 42.0,
+            tulSec = 50,
+            previousWeightKg = 40.0,
+            previousTulSec = 65
         )
-        assertEquals(
-            40.0,
-            ProgressionEngine.openingWeightFor(40.0, 6, 7)!!,
-            0.001
-        )
-        assertNull(ProgressionEngine.openingWeightFor(null, null, 7))
+        assertFalse(result.isPlateau)
+    }
+
+    @Test
+    fun `an exercise with no previous result cannot plateau`() {
+        val result = ExerciseResult("Chest press", weightKg = 40.0, tulSec = 20)
+        assertFalse(result.isPlateau)
+    }
+
+    @Test
+    fun `opening weight steps up only after crossing the ceiling`() {
+        assertEquals(105.0, ProgressionEngine.openingWeightFor(100.0, 92)!!, 0.001)
+        assertEquals(100.0, ProgressionEngine.openingWeightFor(100.0, 60)!!, 0.001)
+        assertNull(ProgressionEngine.openingWeightFor(null, null))
     }
 }

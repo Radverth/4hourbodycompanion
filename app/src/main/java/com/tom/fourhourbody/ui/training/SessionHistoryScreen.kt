@@ -41,7 +41,7 @@ fun SessionHistoryScreen(onBack: () -> Unit) {
                         Text(
                             when {
                                 !session.completed -> "Abandoned"
-                                session.stalled -> "Stalled"
+                                session.plateaued -> "Plateaued"
                                 else -> "Completed"
                             },
                             style = MaterialTheme.typography.bodyMedium

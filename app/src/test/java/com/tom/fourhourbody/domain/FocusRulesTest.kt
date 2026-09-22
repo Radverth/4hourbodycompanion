@@ -9,70 +9,20 @@ import org.junit.Test
 class FocusRulesTest {
 
     @Test
-    fun `a due session outranks everything else`() {
-        assertEquals(
-            Focus.TRAIN,
-            FocusRules.pick(
-                FocusInputs(
-                    trainingEnabled = true,
-                    sessionDueToday = true,
-                    comboHalfOpen = true,
-                    nutritionEnabled = true
-                )
-            )
-        )
+    fun `a due session is the focus`() {
+        assertEquals(Focus.TRAIN, FocusRules.pick(FocusInputs(sessionDueToday = true)))
     }
 
     @Test
     fun `a session already done today stops being the focus`() {
         assertEquals(
-            Focus.LOG_DAY,
-            FocusRules.pick(
-                FocusInputs(
-                    trainingEnabled = true,
-                    sessionDueToday = true,
-                    sessionCompletedToday = true,
-                    nutritionEnabled = true
-                )
-            )
-        )
-    }
-
-    @Test
-    fun `training switched off never takes the focus`() {
-        assertEquals(
             Focus.CLEAR,
-            FocusRules.pick(FocusInputs(trainingEnabled = false, sessionDueToday = true))
+            FocusRules.pick(FocusInputs(sessionDueToday = true, sessionCompletedToday = true))
         )
     }
 
     @Test
-    fun `a half-open combo beats an unlogged day, because half of it is already spent`() {
-        assertEquals(
-            Focus.COMBO,
-            FocusRules.pick(FocusInputs(comboHalfOpen = true, nutritionEnabled = true))
-        )
-    }
-
-    @Test
-    fun `an unlogged day is the focus when nothing else is asking`() {
-        assertEquals(Focus.LOG_DAY, FocusRules.pick(FocusInputs(nutritionEnabled = true)))
-    }
-
-    @Test
-    fun `everything done reads as clear rather than inventing something to ask for`() {
-        assertEquals(
-            Focus.CLEAR,
-            FocusRules.pick(
-                FocusInputs(
-                    trainingEnabled = true,
-                    sessionDueToday = true,
-                    sessionCompletedToday = true,
-                    nutritionEnabled = true,
-                    dayLogged = true
-                )
-            )
-        )
+    fun `nothing due reads as clear`() {
         assertEquals(Focus.CLEAR, FocusRules.pick(FocusInputs()))
     }
 }

@@ -36,7 +36,7 @@ class MilestonesTest {
 
     @Test
     fun `the quest log offers one target per track and never a passed one`() {
-        val stats = Stats(sessionsCompleted = 5, runsCompleted = 1, bestDietChain = 7)
+        val stats = Stats(sessionsCompleted = 5, runsCompleted = 1)
         val quests = Milestones.questLog(stats, limit = 10)
 
         assertTrue(quests.none { it.reached(stats) })
@@ -64,8 +64,7 @@ class MilestonesTest {
             sessionsCompleted = 1_000,
             runsCompleted = 1_000,
             totalBankedKg = 10_000.0,
-            bestGainOnOneLiftKg = 1_000.0,
-            bestDietChain = 1_000
+            bestGainOnOneLiftKg = 1_000.0
         )
         assertEquals(Milestones.ALL.size, Milestones.level(maxed))
         assertTrue(Milestones.questLog(maxed).isEmpty())

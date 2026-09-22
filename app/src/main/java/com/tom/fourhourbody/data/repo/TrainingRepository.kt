@@ -4,7 +4,6 @@ import com.tom.fourhourbody.data.dao.TrainingDao
 import com.tom.fourhourbody.data.entity.ExerciseConfigEntity
 import com.tom.fourhourbody.data.entity.ExerciseLogEntity
 import com.tom.fourhourbody.data.entity.FrequencySettingEntity
-import com.tom.fourhourbody.data.entity.KettlebellRoundEntity
 import com.tom.fourhourbody.data.entity.RunEnd
 import com.tom.fourhourbody.data.entity.RunEntity
 import com.tom.fourhourbody.data.entity.SessionEntity
@@ -68,8 +67,7 @@ class TrainingRepository(private val dao: TrainingDao) {
     fun sessionsBetween(from: LocalDate, to: LocalDate): Flow<List<SessionEntity>> =
         dao.observeSessionsBetween(from, to)
 
-    suspend fun activeStrengthConfigs(): List<ExerciseConfigEntity> =
-        dao.getActiveConfigs().filterNot { it.equipment == TrainingConstants.KETTLEBELL_EQUIPMENT }
+    suspend fun activeStrengthConfigs(): List<ExerciseConfigEntity> = dao.getActiveConfigs()
 
     suspend fun config(id: Long): ExerciseConfigEntity? = dao.getConfig(id)
 
@@ -78,10 +76,10 @@ class TrainingRepository(private val dao: TrainingDao) {
     suspend fun frequency(): FrequencySettingEntity =
         dao.getFrequency() ?: FrequencySettingEntity().also { dao.upsertFrequency(it) }
 
-    /** The opening weight to show for an exercise, already stepped up if the last set hit. */
+    /** The opening weight to show for an exercise, already stepped up if the last set hit the ceiling. */
     suspend fun openingWeightFor(config: ExerciseConfigEntity): Double? {
         val last = dao.getLastLogFor(config.exerciseName) ?: return null
-        return ProgressionEngine.openingWeightFor(last.weightKg, last.reps, config.targetReps)
+        return ProgressionEngine.openingWeightFor(last.weightKg, last.tulSec)
     }
 
     suspend fun lastLogFor(exerciseName: String): ExerciseLogEntity? = dao.getLastLogFor(exerciseName)
@@ -89,10 +87,10 @@ class TrainingRepository(private val dao: TrainingDao) {
     suspend fun bestEverFor(exerciseName: String): Double? = dao.getBestEverFor(exerciseName)
 
     /**
-     * A session row is created when the session starts, not when it ends, so inline stretch
-     * logs have a session to attach to and a session abandoned mid-way still leaves a record.
-     * Starting a session with no run open opens one — the first session of a run is what
-     * begins it, so the user never has to declare a block before training.
+     * A session row is created when the session starts, not when it ends, so a session
+     * abandoned mid-way still leaves a record. Starting a session with no run open opens one —
+     * the first session of a run is what begins it, so the user never has to declare a block
+     * before training.
      */
     suspend fun startSession(date: LocalDate): Long {
         val run = currentRun(date)
@@ -101,23 +99,27 @@ class TrainingRepository(private val dao: TrainingDao) {
 
     suspend fun logExercise(log: ExerciseLogEntity): Long = dao.insertExerciseLog(log)
 
-    suspend fun logKettlebellRound(round: KettlebellRoundEntity): Long =
-        dao.insertKettlebellRound(round)
-
-    suspend fun finishSession(sessionId: Long, stalled: Boolean, notes: String?) {
+    suspend fun finishSession(sessionId: Long, plateaued: Boolean, plateauedOnExercise: String?, notes: String?) {
         val session = dao.getSession(sessionId) ?: return
-        dao.updateSession(session.copy(completed = true, stalled = stalled, notes = notes))
+        dao.updateSession(
+            session.copy(
+                completed = true,
+                plateaued = plateaued,
+                plateauedOnExercise = plateauedOnExercise,
+                notes = notes
+            )
+        )
     }
 
     /**
-     * The book's frequency mechanism: a stalled session adds a rest day to every session that
-     * follows. Called once, when the stalled session is saved.
+     * The book's frequency mechanism: a plateaued session adds a rest day to every session that
+     * follows. Called once, when the session that plateaued is saved.
      */
-    suspend fun applyStall(today: LocalDate): Int {
+    suspend fun applyPlateau(today: LocalDate): Int {
         val current = frequency()
         val updated = current.copy(
             currentRestDaysBetweenSessions =
-                SessionScheduler.restDaysAfterStall(current.currentRestDaysBetweenSessions),
+                SessionScheduler.restDaysAfterPlateau(current.currentRestDaysBetweenSessions),
             lastIncreaseDate = today
         )
         dao.upsertFrequency(updated)
@@ -126,7 +128,7 @@ class TrainingRepository(private val dao: TrainingDao) {
 
     // ---- Runs -------------------------------------------------------------------------
     //
-    // A run is the block of training between one stall and the next. The protocol already
+    // A run is the block of training between one plateau and the next. The protocol already
     // works in blocks; naming them just makes the shape visible, and gives the weights
     // somewhere to be banked when a block closes.
 
@@ -148,7 +150,7 @@ class TrainingRepository(private val dao: TrainingDao) {
         dao.getActiveRun()?.let { dao.countCompletedInRun(it.id) } ?: 0
 
     /**
-     * Closes the open run and reads back what it earned. Called after [applyStall] so the
+     * Closes the open run and reads back what it earned. Called after [applyPlateau] so the
      * rest days recorded on the run are the ones the next run will actually use.
      */
     suspend fun endRun(endedBy: RunEnd, today: LocalDate): RunSummary? {

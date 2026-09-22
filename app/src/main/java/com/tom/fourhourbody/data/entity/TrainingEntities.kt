@@ -1,21 +1,22 @@
 package com.tom.fourhourbody.data.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.LocalDate
 
 /** How a run ended. A run that is still going has neither. */
-enum class RunEnd { STALL, MANUAL }
+enum class RunEnd { PLATEAU, MANUAL }
 
 /**
- * A run: the block of training between one stall and the next.
+ * A run: the block of training between one plateau and the next.
  *
  * This is not a metaphor laid over the protocol — the book already works this way. You push
- * weight up session after session until you miss your target by more than a rep, and that
- * miss ends the block and buys you another rest day. The run is that block, and the stall is
- * how it ends. What carries over is everything that matters: the weights, the records, the
- * wider gap that makes the next block work.
+ * weight (or time under load) up session after session until one exercise fails to beat its
+ * last result at the same weight, and that plateau ends the block and buys you another rest
+ * day. The run is that block. What carries over is everything that matters: the weights, the
+ * records, the wider gap that makes the next block work.
  */
 @Entity(tableName = "runs")
 data class RunEntity(
@@ -37,8 +38,11 @@ data class SessionEntity(
     /** The run this session belongs to; null only for sessions logged before runs existed. */
     val runId: Long? = null,
     val completed: Boolean = false,
-    /** True when the target rep count was missed by more than one rep on any exercise. */
-    val stalled: Boolean = false,
+    /** True when any exercise failed to beat its last time under load at the same weight. */
+    @ColumnInfo(name = "stalled")
+    val plateaued: Boolean = false,
+    /** Which exercise triggered [plateaued] — null when the session didn't plateau. */
+    val plateauedOnExercise: String? = null,
     val notes: String? = null
 )
 
@@ -49,12 +53,11 @@ data class ExerciseLogEntity(
     val exerciseName: String,
     val equipment: String,
     val weightKg: Double,
-    val reps: Int,
-    /** 7 for everything except leg press, which is 10. */
-    val targetReps: Int,
-    /** 5 seconds up, 5 seconds down. */
-    val tempo: String = "5/5",
-    /** Actual rest taken before this exercise, in seconds — the book asks for exactly 180. */
+    /** Time under load, in seconds — the book's real measure of a set, not the rep count. */
+    val tulSec: Int,
+    /** Informational only; no rule reads this. Old sessions logged before TUL existed are 0. */
+    val reps: Int = 0,
+    /** Actual rest taken before this exercise, in seconds. */
     val restSecActual: Int = 0
 )
 
@@ -64,28 +67,18 @@ data class ExerciseConfigEntity(
     val slotName: String,
     val exerciseName: String,
     val equipment: String,
-    val targetReps: Int,
     val isActive: Boolean = true,
-    /** Order within a session. Not in the brief's table, but the slots are ordered. */
+    /** Order within a session. */
     val orderIndex: Int = 0
 )
 
-@Entity(tableName = "kettlebell_rounds", indices = [Index("sessionId")])
-data class KettlebellRoundEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val sessionId: Long,
-    val roundNumber: Int,
-    val swingCount: Int,
-    val bellWeightKg: Double
-)
-
 /**
- * Single-row table (id is always 1). Rest days start at 2 and the book's stall rule pushes
- * them to 3, then 4+, which is what actually drives scheduling — not a fixed Mon/Thu.
+ * Single-row table (id is always 1). Rest days start at 6 — "once every seven days" — and a
+ * plateau pushes them to 7, then 8, then further, which is what actually drives scheduling.
  */
 @Entity(tableName = "frequency_setting")
 data class FrequencySettingEntity(
     @PrimaryKey val id: Int = 1,
-    val currentRestDaysBetweenSessions: Int = 2,
+    val currentRestDaysBetweenSessions: Int = 6,
     val lastIncreaseDate: LocalDate? = null
 )

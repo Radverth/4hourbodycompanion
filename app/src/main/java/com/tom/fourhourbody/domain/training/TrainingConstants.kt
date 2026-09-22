@@ -1,52 +1,48 @@
 package com.tom.fourhourbody.domain.training
 
 /**
- * Occam's Protocol, as the book actually specifies it. Earlier scoping used approximate
- * figures (8–12 reps, a fixed twice-weekly split); these are the real numbers and the rest of
- * the training pillar reads them from here rather than hardcoding its own.
+ * The Big Five, as Body by Science actually specifies it. One set to positive failure per
+ * exercise; time under load is the real measure of a set, not the rep count.
  */
 object TrainingConstants {
 
-    /** Failure target for every exercise except leg press. */
-    const val DEFAULT_TARGET_REPS = 7
+    /**
+     * The book's target ceiling: if a set is still going at 90 seconds, the weight was
+     * misjudged. Crossing this is what earns the next session's weight bump.
+     */
+    const val TUL_CEILING_SEC = 90
 
-    /** Leg press goes to 10+. */
-    const val LEG_PRESS_TARGET_REPS = 10
-
-    const val TEMPO_UP_SEC = 5
-    const val TEMPO_DOWN_SEC = 5
-
-    /** Exactly three minutes between exercises — timed, not eyeballed. */
-    const val REST_BETWEEN_EXERCISES_SEC = 180
+    /** The book's own worked example is "5 to 10 percent"; this app applies the low end. */
+    const val PROGRESSION_STEP_PERCENT = 0.05
 
     /**
-     * A miss of one rep is not a stall. More than one rep short of target is, and it ends the
-     * session on the spot.
+     * A cadence guide only, shown on screen — not enforced. The book's rule of thumb is "as
+     * slow as you can without the movement turning into a series of stops and starts," and
+     * gives 10 seconds up / 10 seconds down as its own worked example.
      */
-    const val STALL_TOLERANCE_REPS = 1
+    const val TEMPO_UP_SEC = 10
+    const val TEMPO_DOWN_SEC = 10
 
-    /** Rest days between sessions at the start; the stall rule pushes this to 3, then 4+. */
-    const val INITIAL_REST_DAYS = 2
-
-    const val KETTLEBELL_EQUIPMENT = "Kettlebell"
-
-    const val TABATA_ROUNDS = 8
-    const val TABATA_WORK_SEC = 20
-    const val TABATA_REST_SEC = 10
-
-    const val SIX_MINUTE_ABS_SEC = 360
-
-    /** 10 lb in kilograms — the floor of the progression step. */
-    const val TEN_POUNDS_KG = 4.5359237
-
-    const val PROGRESSION_PERCENT = 0.10
+    /** "30 seconds to a minute... move briskly." This app times the midpoint. */
+    const val REST_BETWEEN_EXERCISES_SEC = 45
 
     /**
-     * Shown once before the first exercise of a session, dismissible. The book applies this
-     * cue to every loaded exercise, not just one lift.
+     * Rest days between sessions at the start — a gap of 7 days, i.e. "once every seven days."
+     * A plateau pushes this to 8, then 9, then further, the book's own mechanism for backing
+     * off as a trainee gets stronger.
      */
-    const val LOCKED_POSITION_CUE =
-        "Lock your position: pull the shoulder blades back and down 1–2 inches, and hold " +
-            "them there for every rep of every loaded exercise. This is the shoulder-safety " +
-            "cue the book applies across the whole session, not just to pressing."
+    const val INITIAL_REST_DAYS = 6
+
+    /**
+     * Shown once before the first set of a session, dismissible. Covers the two things the
+     * book asks for that a lifter would not otherwise know to do: breathe rather than hold the
+     * breath, and keep pushing rather than bail the instant the weight stops moving.
+     */
+    const val FIRST_SET_CUE =
+        "Breathe continuously through the set — open mouth, faster as it gets hard. Holding " +
+            "your breath raises blood pressure and works against the point of the set.\n\n" +
+            "When the weight stops moving, that is not the end: keep contracting against it. " +
+            "The set is not about the weight going up and down, it's about reaching a real " +
+            "level of fatigue — so panicking and bailing the moment it bogs down throws away " +
+            "the part of the set that was actually doing something."
 }

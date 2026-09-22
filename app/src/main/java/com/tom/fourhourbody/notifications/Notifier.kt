@@ -20,11 +20,6 @@ object Notifier {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         val channels = listOf(
             Channels.TRAINING to "Training",
-            Channels.STRETCHES to "Static stretches",
-            Channels.NUTRITION to "Nutrition",
-            Channels.SLEEP to "Sleep",
-            Channels.COLD to "Cold exposure",
-            Channels.CREATINE to "Creatine",
             Channels.PROGRESS to "Progress"
         )
         channels.forEach { (id, name) ->

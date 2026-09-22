@@ -9,7 +9,6 @@ import androidx.room.Upsert
 import com.tom.fourhourbody.data.entity.ExerciseConfigEntity
 import com.tom.fourhourbody.data.entity.ExerciseLogEntity
 import com.tom.fourhourbody.data.entity.FrequencySettingEntity
-import com.tom.fourhourbody.data.entity.KettlebellRoundEntity
 import com.tom.fourhourbody.data.entity.RunEntity
 import com.tom.fourhourbody.data.entity.SessionEntity
 import kotlinx.coroutines.flow.Flow
@@ -114,9 +113,6 @@ interface TrainingDao {
         """
     )
     suspend fun getBestEverFor(exerciseName: String): Double?
-
-    @Insert
-    suspend fun insertKettlebellRound(round: KettlebellRoundEntity): Long
 
     @Query("SELECT * FROM exercise_configs WHERE isActive = 1 ORDER BY orderIndex ASC, id ASC")
     fun observeActiveConfigs(): Flow<List<ExerciseConfigEntity>>

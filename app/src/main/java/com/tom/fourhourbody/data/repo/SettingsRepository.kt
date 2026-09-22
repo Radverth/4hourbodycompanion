@@ -1,7 +1,6 @@
 package com.tom.fourhourbody.data.repo
 
 import com.tom.fourhourbody.data.dao.SettingsDao
-import com.tom.fourhourbody.data.entity.Pillar
 import com.tom.fourhourbody.data.entity.SettingsEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -16,7 +15,4 @@ class SettingsRepository(private val dao: SettingsDao) {
     suspend fun update(transform: (SettingsEntity) -> SettingsEntity) {
         dao.upsert(transform(current()))
     }
-
-    suspend fun setPillarEnabled(pillar: Pillar, enabled: Boolean) =
-        update { it.withPillar(pillar, enabled) }
 }

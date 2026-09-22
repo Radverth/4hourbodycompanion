@@ -81,7 +81,7 @@ jobs:
 
           version="$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts || echo '1.0')"
           tag="v${version}-build.${RUN_NUMBER}"
-          apk="4hb-companion-${version}-build${RUN_NUMBER}-debug.apk"
+          apk="big-five-companion-${version}-build${RUN_NUMBER}-debug.apk"
 
           cp app/build/outputs/apk/debug/app-debug.apk "$apk"
 

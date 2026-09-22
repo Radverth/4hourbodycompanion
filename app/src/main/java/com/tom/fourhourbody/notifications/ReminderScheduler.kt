@@ -5,15 +5,13 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import com.tom.fourhourbody.data.entity.Pillar
 import com.tom.fourhourbody.data.entity.SettingsEntity
 import java.time.LocalDateTime
 import java.time.ZoneId
 
 /**
- * Turns the current settings into a set of alarms. Cancel-then-schedule on every run, so
- * switching a pillar off in Settings drops every alarm it owns and switching it back on
- * restores them, with no bookkeeping in between.
+ * Turns the current settings into a set of alarms. Cancel-then-schedule on every run, so a
+ * changed reminder time takes effect immediately with no bookkeeping in between.
  */
 object ReminderScheduler {
 
@@ -23,86 +21,30 @@ object ReminderScheduler {
         cancelAll(context)
         Notifier.ensureChannels(context)
 
-        if (settings.isEnabled(Pillar.TRAINING)) {
-            schedule(context, ReminderKind.TRAINING_SESSION, ReminderTimes.nextDaily(now, settings.reminderTimeMinutes, settings.shiftPattern))
-            schedule(
-                context,
-                ReminderKind.SKIPPED_SESSION_NUDGE,
-                ReminderTimes.nextDaily(now, ReminderTimes.nudgeMinutes(settings), settings.shiftPattern)
-            )
-            // The weigh-in reminder is independent of the other pillar reminders, but there is
-            // no separate "progress" toggle — it rides with training.
-            schedule(
-                context,
-                ReminderKind.WEEKLY_WEIGH_IN,
-                ReminderTimes.nextWeekly(now, settings.weighInDay, settings.weighInTimeMinutes, settings.shiftPattern)
-            )
-        }
-
-        if (settings.isEnabled(Pillar.STRETCHES)) {
-            if (settings.deskResetRemindersEnabled) {
-                ReminderTimes.nextDeskResetTicks(now, settings).forEachIndexed { index, at ->
-                    schedule(context, ReminderKind.DESK_RESET_INTERVAL, at, index)
-                }
-            }
-            schedule(
-                context,
-                ReminderKind.WEEKLY_DESK_RESET,
-                ReminderTimes.nextWeekly(now, settings.weeklyDeskResetDay, settings.weeklyRoutineTimeMinutes, settings.shiftPattern)
-            )
-            schedule(
-                context,
-                ReminderKind.WEEKLY_MOBILITY,
-                ReminderTimes.nextWeekly(now, settings.weeklyMobilityDay, settings.weeklyRoutineTimeMinutes, settings.shiftPattern)
-            )
-        }
-
-        if (settings.isEnabled(Pillar.SLEEP)) {
-            schedule(
-                context,
-                ReminderKind.SLEEP_CHECKLIST,
-                ReminderTimes.nextDaily(now, settings.sleepReminderMinutes, settings.shiftPattern)
-            )
-        }
-
-        if (settings.isEnabled(Pillar.COLD) && settings.coldRemindersEnabled) {
-            ReminderTimes.nextColdReminder(now, settings)?.let {
-                schedule(context, ReminderKind.COLD_EXPOSURE, it)
-            }
-        }
-
-        if (settings.isEnabled(Pillar.CREATINE) && settings.creatineRemindersEnabled) {
-            schedule(
-                context,
-                ReminderKind.CREATINE_MORNING,
-                ReminderTimes.nextDaily(now, settings.creatineMorningMinutes, settings.shiftPattern)
-            )
-            schedule(
-                context,
-                ReminderKind.CREATINE_EVENING,
-                ReminderTimes.nextDaily(now, settings.creatineEveningMinutes, settings.shiftPattern)
-            )
-        }
+        schedule(context, ReminderKind.TRAINING_SESSION, ReminderTimes.nextDaily(now, settings.reminderTimeMinutes))
+        schedule(
+            context,
+            ReminderKind.SKIPPED_SESSION_NUDGE,
+            ReminderTimes.nextDaily(now, ReminderTimes.nudgeMinutes(settings.reminderTimeMinutes))
+        )
+        schedule(
+            context,
+            ReminderKind.WEEKLY_WEIGH_IN,
+            ReminderTimes.nextWeekly(now, settings.weighInDay, settings.weighInTimeMinutes)
+        )
     }
 
     fun cancelAll(context: Context) {
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
         ReminderKind.entries.forEach { kind ->
-            val slots = if (kind == ReminderKind.DESK_RESET_INTERVAL) {
-                ReminderKind.MAX_DESK_RESET_TICKS
-            } else {
-                1
-            }
-            repeat(slots) { index ->
-                alarmManager.cancel(pendingIntent(context, kind, index, mutable = false))
-            }
+            alarmManager.cancel(pendingIntent(context, kind, mutable = false))
         }
     }
 
-    private fun schedule(context: Context, kind: ReminderKind, at: LocalDateTime, index: Int = 0) {
+    private fun schedule(context: Context, kind: ReminderKind, at: LocalDateTime) {
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
         val triggerAt = at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val pendingIntent = pendingIntent(context, kind, index, mutable = false)
+        val pendingIntent = pendingIntent(context, kind, mutable = false)
 
         // Exact where the platform allows it; a windowed alarm otherwise, so a denied
         // exact-alarm permission degrades the reminder rather than losing it.
@@ -121,18 +63,13 @@ object ReminderScheduler {
         }
     }
 
-    private fun pendingIntent(
-        context: Context,
-        kind: ReminderKind,
-        index: Int,
-        mutable: Boolean
-    ): PendingIntent {
+    private fun pendingIntent(context: Context, kind: ReminderKind, mutable: Boolean): PendingIntent {
         val intent = Intent(context, ReminderReceiver::class.java).apply {
-            action = "com.tom.fourhourbody.REMINDER.${kind.name}.$index"
+            action = "com.tom.fourhourbody.REMINDER.${kind.name}"
             putExtra(EXTRA_KIND, kind.name)
         }
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or
             if (mutable) PendingIntent.FLAG_MUTABLE else PendingIntent.FLAG_IMMUTABLE
-        return PendingIntent.getBroadcast(context, kind.requestCodeBase + index, intent, flags)
+        return PendingIntent.getBroadcast(context, kind.requestCodeBase, intent, flags)
     }
 }

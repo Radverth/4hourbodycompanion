@@ -21,40 +21,45 @@ class RunEngineTest {
         runNumber = 3,
         startDate = start,
         endDate = start.plusDays(33),
-        endedBy = RunEnd.STALL,
-        restDaysAtStart = 3,
-        restDaysAtEnd = 4
+        endedBy = RunEnd.PLATEAU,
+        restDaysAtStart = 7,
+        restDaysAtEnd = 8
     )
 
-    private fun session(id: Long, dayOffset: Long, stalled: Boolean = false) = SessionEntity(
+    private fun session(
+        id: Long,
+        dayOffset: Long,
+        plateaued: Boolean = false,
+        plateauedOnExercise: String? = null
+    ) = SessionEntity(
         id = id,
         date = start.plusDays(dayOffset),
         runId = 1,
         completed = true,
-        stalled = stalled
+        plateaued = plateaued,
+        plateauedOnExercise = plateauedOnExercise
     )
 
-    private fun log(id: Long, sessionId: Long, name: String, weight: Double, reps: Int, target: Int = 7) =
+    private fun log(id: Long, sessionId: Long, name: String, weight: Double, tulSec: Int) =
         ExerciseLogEntity(
             id = id,
             sessionId = sessionId,
             exerciseName = name,
             equipment = "Machine",
             weightKg = weight,
-            reps = reps,
-            targetReps = target
+            tulSec = tulSec
         )
 
     @Test
     fun `a run reports what each exercise gained from first session to last`() {
-        val sessions = listOf(session(1, 0), session(2, 4), session(3, 9))
+        val sessions = listOf(session(1, 0), session(2, 7), session(3, 14))
         val logs = listOf(
-            log(1, 1, "Leg press", 100.0, 10, 10),
-            log(2, 1, "Chest press", 40.0, 8),
-            log(3, 2, "Leg press", 110.0, 10, 10),
-            log(4, 2, "Chest press", 45.0, 7),
-            log(5, 3, "Leg press", 120.0, 10, 10),
-            log(6, 3, "Chest press", 49.5, 7)
+            log(1, 1, "Leg press", 100.0, 70),
+            log(2, 1, "Chest press", 40.0, 60),
+            log(3, 2, "Leg press", 110.0, 65),
+            log(4, 2, "Chest press", 45.0, 55),
+            log(5, 3, "Leg press", 120.0, 60),
+            log(6, 3, "Chest press", 49.5, 50)
         )
 
         val summary = RunEngine.summarise(run, sessions, logs)
@@ -69,43 +74,45 @@ class RunEngineTest {
 
     @Test
     fun `gains are ordered by how much was added, biggest first`() {
-        val sessions = listOf(session(1, 0), session(2, 4))
+        val sessions = listOf(session(1, 0), session(2, 7))
         val logs = listOf(
-            log(1, 1, "Chest press", 40.0, 8),
-            log(2, 1, "Leg press", 100.0, 10, 10),
-            log(3, 2, "Chest press", 44.5, 7),
-            log(4, 2, "Leg press", 120.0, 10, 10)
+            log(1, 1, "Chest press", 40.0, 60),
+            log(2, 1, "Leg press", 100.0, 60),
+            log(3, 2, "Chest press", 44.5, 55),
+            log(4, 2, "Leg press", 120.0, 55)
         )
         val summary = RunEngine.summarise(run, sessions, logs)
         assertEquals("Leg press", summary.gains.first().exerciseName)
     }
 
     @Test
-    fun `the exercise that stalled is named from the session that ended the run`() {
-        val sessions = listOf(session(1, 0), session(2, 4, stalled = true))
+    fun `the exercise that plateaued is read from the session that ended the run`() {
+        val sessions = listOf(
+            session(1, 0),
+            session(2, 7, plateaued = true, plateauedOnExercise = "Overhead press")
+        )
         val logs = listOf(
-            log(1, 1, "Leg press", 100.0, 10, 10),
-            log(2, 2, "Leg press", 110.0, 10, 10),
-            // Four reps against a target of seven: more than one short, so this is the stall.
-            log(3, 2, "Overhead press", 45.0, 4)
+            log(1, 1, "Leg press", 100.0, 60),
+            log(2, 2, "Leg press", 110.0, 60),
+            log(3, 2, "Overhead press", 45.0, 40)
         )
 
         val summary = RunEngine.summarise(run, sessions, logs)
-        assertEquals("Overhead press", summary.stalledOn)
+        assertEquals("Overhead press", summary.plateauedOn)
     }
 
     @Test
-    fun `one rep short does not count as the stall`() {
-        val sessions = listOf(session(1, 0, stalled = true))
-        val logs = listOf(log(1, 1, "Chest press", 40.0, 6))
-        assertNull(RunEngine.summarise(run, sessions, logs).stalledOn)
+    fun `a session with no plateau names no exercise`() {
+        val sessions = listOf(session(1, 0))
+        val logs = listOf(log(1, 1, "Chest press", 40.0, 60))
+        assertNull(RunEngine.summarise(run, sessions, logs).plateauedOn)
     }
 
     @Test
     fun `the run records the rest days it started and ended on`() {
         val summary = RunEngine.summarise(run, emptyList(), emptyList())
-        assertEquals(3, summary.restDaysBefore)
-        assertEquals(4, summary.restDaysAfter)
+        assertEquals(7, summary.restDaysBefore)
+        assertEquals(8, summary.restDaysAfter)
         assertTrue(summary.isComplete)
     }
 
@@ -116,21 +123,21 @@ class RunEngineTest {
         assertEquals(10L, summary.days)
         assertFalse(summary.isComplete)
         // With no recorded end, the gap is still the one it started on.
-        assertEquals(3, summary.restDaysAfter)
+        assertEquals(7, summary.restDaysAfter)
     }
 
     @Test
     fun `an abandoned session does not count towards the run`() {
-        val sessions = listOf(session(1, 0), session(2, 4).copy(completed = false))
+        val sessions = listOf(session(1, 0), session(2, 7).copy(completed = false))
         assertEquals(1, RunEngine.summarise(run, sessions, emptyList()).sessions)
     }
 
     @Test
     fun `a run that only ever lost weight reports no total gain rather than a negative`() {
-        val sessions = listOf(session(1, 0), session(2, 4))
+        val sessions = listOf(session(1, 0), session(2, 7))
         val logs = listOf(
-            log(1, 1, "Chest press", 50.0, 8),
-            log(2, 2, "Chest press", 45.0, 5)
+            log(1, 1, "Chest press", 50.0, 55),
+            log(2, 2, "Chest press", 45.0, 40)
         )
         val summary = RunEngine.summarise(run, sessions, logs)
         assertEquals(0.0, summary.totalGainKg, 0.001)

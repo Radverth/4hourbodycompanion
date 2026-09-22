@@ -12,7 +12,6 @@ import com.tom.fourhourbody.data.repo.RunStatus
 import com.tom.fourhourbody.data.repo.TrainingRepository
 import com.tom.fourhourbody.data.repo.TrainingSchedule
 import com.tom.fourhourbody.domain.run.RunSummary
-import com.tom.fourhourbody.domain.training.TrainingConstants
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -52,7 +51,6 @@ class TrainingViewModel(
                     slotName = "Slot ${next + 1}",
                     exerciseName = "New exercise",
                     equipment = "Machine",
-                    targetReps = TrainingConstants.DEFAULT_TARGET_REPS,
                     orderIndex = next
                 )
             )

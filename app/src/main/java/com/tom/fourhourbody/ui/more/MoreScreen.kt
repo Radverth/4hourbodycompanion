@@ -22,41 +22,6 @@ fun MoreScreen(onOpen: (String) -> Unit) {
         item { Text("More", style = MaterialTheme.typography.headlineMedium) }
         item {
             SectionCard(
-                title = "Static stretches",
-                subtitle = "Desk reset, rest-day mobility and the routine setup.",
-                onClick = { onOpen(Routes.STRETCHES) }
-            )
-        }
-        item {
-            SectionCard(
-                title = "Nutrition",
-                subtitle = "Slow-carb rules, cheat day and damage control.",
-                onClick = { onOpen(Routes.NUTRITION) }
-            )
-        }
-        item {
-            SectionCard(
-                title = "Sleep",
-                subtitle = "Nightly checklist.",
-                onClick = { onOpen(Routes.SLEEP) }
-            )
-        }
-        item {
-            SectionCard(
-                title = "Cold exposure",
-                subtitle = "Shower, ice pack, pre-bed bath.",
-                onClick = { onOpen(Routes.COLD) }
-            )
-        }
-        item {
-            SectionCard(
-                title = "Creatine",
-                subtitle = "28-day cycle log.",
-                onClick = { onOpen(Routes.CREATINE) }
-            )
-        }
-        item {
-            SectionCard(
                 title = "Progress",
                 subtitle = "Weight, waist, hip, photos and trends.",
                 onClick = { onOpen(Routes.PROGRESS) }
@@ -65,7 +30,7 @@ fun MoreScreen(onOpen: (String) -> Unit) {
         item {
             SectionCard(
                 title = "Settings",
-                subtitle = "Pillars, reminders and defaults.",
+                subtitle = "Reminders and defaults.",
                 onClick = { onOpen(Routes.SETTINGS) }
             )
         }

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
@@ -25,9 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.tom.fourhourbody.domain.training.TrainingConstants
 import com.tom.fourhourbody.ui.common.BackTopBar
-import com.tom.fourhourbody.ui.common.NumberField
 import com.tom.fourhourbody.ui.common.rememberContainer
 
 @Composable
@@ -44,9 +41,9 @@ fun ExerciseConfigScreen(onBack: () -> Unit) {
         ) {
             item {
                 Text(
-                    "Leg press carries the book's ${TrainingConstants.LEG_PRESS_TARGET_REPS}+ rep " +
-                        "target; everything else is ${TrainingConstants.DEFAULT_TARGET_REPS}+. " +
-                        "Kettlebell swings run as the Tabata block, not as a tempo set.",
+                    "Five slots, one set each, to positive failure. Add or remove a slot to " +
+                        "run the Big Three instead of the Big Five, or swap in a free-weight " +
+                        "equivalent.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -74,27 +71,15 @@ fun ExerciseConfigScreen(onBack: () -> Unit) {
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedTextField(
-                                value = config.equipment,
-                                onValueChange = {
-                                    viewModel.updateConfig(config.copy(equipment = it))
-                                },
-                                label = { Text("Equipment") },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f)
-                            )
-                            NumberField(
-                                label = "Target reps",
-                                value = config.targetReps.toString(),
-                                onValueChange = { raw ->
-                                    raw.toIntOrNull()?.let {
-                                        viewModel.updateConfig(config.copy(targetReps = it))
-                                    }
-                                },
-                                modifier = Modifier.width(130.dp)
-                            )
-                        }
+                        OutlinedTextField(
+                            value = config.equipment,
+                            onValueChange = {
+                                viewModel.updateConfig(config.copy(equipment = it))
+                            },
+                            label = { Text("Equipment") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }

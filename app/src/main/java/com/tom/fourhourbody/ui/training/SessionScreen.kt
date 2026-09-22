@@ -2,7 +2,6 @@ package com.tom.fourhourbody.ui.training
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -17,12 +16,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -35,10 +32,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tom.fourhourbody.domain.run.RunSummary
 import com.tom.fourhourbody.domain.training.TrainingConstants
 import com.tom.fourhourbody.ui.common.CheckRow
+import com.tom.fourhourbody.ui.common.KeepScreenOn
 import com.tom.fourhourbody.ui.common.NumberField
 import com.tom.fourhourbody.ui.common.rememberContainer
-import com.tom.fourhourbody.ui.stretches.KeepScreenOn
-import com.tom.fourhourbody.ui.stretches.StretchRunner
 import com.tom.fourhourbody.ui.theme.NumeralLarge
 import com.tom.fourhourbody.ui.theme.NumeralMedium
 import com.tom.fourhourbody.ui.theme.NumeralSmall
@@ -46,9 +42,8 @@ import com.tom.fourhourbody.ui.theme.Palette
 import com.tom.fourhourbody.util.kgDisplay
 
 /**
- * The guided Occam's Protocol session: locked-position cue, glute activation, the strength
- * block at 5s/5s with three minutes of timed rest, then the kettlebell work. Stretches are run
- * through the stretch engine rather than reimplemented here.
+ * The guided Big Five session: a one-time cue, then five exercises, each one set to positive
+ * failure timed on a stopwatch, with a brisk timed transition between.
  */
 @Composable
 fun SessionScreen(onExit: () -> Unit) {
@@ -56,9 +51,6 @@ fun SessionScreen(onExit: () -> Unit) {
     val viewModel: SessionViewModel = viewModel(factory = SessionViewModel.factory(container))
     val stage by viewModel.stage.collectAsStateWithLifecycle()
     val prompt by viewModel.prompt.collectAsStateWithLifecycle()
-    val gluteSteps by viewModel.gluteSteps.collectAsStateWithLifecycle()
-    val hipFlexorSteps by viewModel.hipFlexorSteps.collectAsStateWithLifecycle()
-    val settings by viewModel.settings.collectAsStateWithLifecycle()
 
     KeepScreenOn()
 
@@ -72,27 +64,9 @@ fun SessionScreen(onExit: () -> Unit) {
         when (val current = stage) {
             SessionStage.Loading -> Text("Preparing session…")
 
-            SessionStage.LockedPosition -> LockedPositionStage(
-                onContinue = viewModel::acknowledgeLockedPosition
+            SessionStage.FirstSetCue -> FirstSetCueStage(
+                onContinue = viewModel::acknowledgeFirstSetCue
             )
-
-            SessionStage.GluteActivation -> {
-                Text("Pre-workout glute activation", style = MaterialTheme.typography.titleLarge)
-                Text(
-                    "Before the first exercise, every session.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                StretchRunner(
-                    steps = gluteSteps,
-                    onFinished = { completions ->
-                        viewModel.onStretchesDone(completions, SessionStage.Strength(0))
-                    },
-                    onExit = {
-                        viewModel.onStretchesDone(emptyList(), SessionStage.Strength(0))
-                    }
-                )
-            }
 
             is SessionStage.Strength -> {
                 val currentPrompt = prompt
@@ -101,8 +75,8 @@ fun SessionScreen(onExit: () -> Unit) {
                 } else {
                     StrengthStage(
                         prompt = currentPrompt,
-                        onLog = { weight, reps ->
-                            viewModel.logExercise(current.index, weight, reps)
+                        onLog = { weight, tulSec ->
+                            viewModel.logExercise(current.index, weight, tulSec)
                         }
                     )
                 }
@@ -111,8 +85,7 @@ fun SessionScreen(onExit: () -> Unit) {
             is SessionStage.Rest -> {
                 Text("Rest", style = MaterialTheme.typography.titleLarge)
                 Text(
-                    "Exactly ${TrainingConstants.REST_BETWEEN_EXERCISES_SEC / 60} minutes — " +
-                        "timed, not eyeballed.",
+                    "Move briskly to the next machine.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -126,41 +99,11 @@ fun SessionScreen(onExit: () -> Unit) {
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Skipping the rest logs the rest you actually took.",
+                    "Ready early? Skip logs the rest you actually took.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            is SessionStage.Stalled -> StalledStage(
-                exerciseName = current.exerciseName,
-                runNumber = current.runNumber,
-                onEndSession = { viewModel.finishSession() }
-            )
-
-            SessionStage.KettlebellPrep -> {
-                Text("Hip flexor stretch", style = MaterialTheme.typography.titleLarge)
-                Text(
-                    "The static exception before swings — non-dominant side first.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                StretchRunner(
-                    steps = hipFlexorSteps,
-                    onFinished = { completions ->
-                        viewModel.onStretchesDone(completions, SessionStage.Tabata)
-                    },
-                    onExit = { viewModel.onStretchesDone(emptyList(), SessionStage.Tabata) }
-                )
-            }
-
-            SessionStage.Tabata -> TabataStage(
-                defaultBellWeightKg = settings.defaultBellWeightKg,
-                onRoundLogged = viewModel::logKettlebellRound,
-                onFinished = viewModel::onTabataFinished
-            )
-
-            SessionStage.Abs -> AbsStage(onFinished = viewModel::onAbsFinished)
 
             is SessionStage.Summary -> SummaryStage(
                 stage = current,
@@ -176,14 +119,14 @@ fun SessionScreen(onExit: () -> Unit) {
 }
 
 @Composable
-private fun LockedPositionStage(onContinue: (Boolean) -> Unit) {
+private fun FirstSetCueStage(onContinue: (Boolean) -> Unit) {
     var dontShowAgain by remember { mutableStateOf(false) }
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            Text("Locked position", style = MaterialTheme.typography.titleLarge)
+            Text("Before you start", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(8.dp))
-            Text(TrainingConstants.LOCKED_POSITION_CUE, style = MaterialTheme.typography.bodyMedium)
+            Text(TrainingConstants.FIRST_SET_CUE, style = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.height(12.dp))
             CheckRow(
                 label = "Don't show this again",
@@ -195,7 +138,7 @@ private fun LockedPositionStage(onContinue: (Boolean) -> Unit) {
                 onClick = { onContinue(dontShowAgain) },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Start warm-up")
+                Text("Start")
             }
         }
     }
@@ -206,7 +149,6 @@ private fun StrengthStage(prompt: ExercisePrompt, onLog: (Double, Int) -> Unit) 
     var weightText by remember(prompt.config.id) {
         mutableStateOf(prompt.suggestedWeightKg?.let { "%.1f".format(it) } ?: "")
     }
-    var reps by remember(prompt.config.id) { mutableIntStateOf(0) }
 
     Text(
         "Exercise ${prompt.position} of ${prompt.total}",
@@ -215,13 +157,13 @@ private fun StrengthStage(prompt: ExercisePrompt, onLog: (Double, Int) -> Unit) 
     )
     Text(prompt.config.exerciseName, style = MaterialTheme.typography.headlineSmall)
     Text(
-        "Target: ${prompt.config.targetReps}+ reps to failure · ${prompt.config.equipment}",
+        "One set to positive failure · ${prompt.config.equipment}",
         style = MaterialTheme.typography.bodyMedium
     )
 
-    if (prompt.lastWeightKg != null && prompt.lastReps != null) {
+    if (prompt.lastWeightKg != null && prompt.lastTulSec != null) {
         Text(
-            "Last time: ${prompt.lastWeightKg.kgDisplay()} × ${prompt.lastReps} reps",
+            "Last time: ${prompt.lastWeightKg.kgDisplay()} for ${prompt.lastTulSec}s",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -234,8 +176,6 @@ private fun StrengthStage(prompt: ExercisePrompt, onLog: (Double, Int) -> Unit) 
         )
     }
 
-    // The record is called while the weight is still on the bar. Saving it for the summary
-    // puts the reward minutes after the effort that earned it.
     val entered = weightText.toDoubleOrNull()
     if (entered != null && prompt.isRecord(entered)) {
         Spacer(Modifier.height(10.dp))
@@ -270,127 +210,22 @@ private fun StrengthStage(prompt: ExercisePrompt, onLog: (Double, Int) -> Unit) 
     )
 
     Spacer(Modifier.height(16.dp))
-    TempoGuide(reps = reps, onRepsChange = { reps = it })
-
-    Spacer(Modifier.height(16.dp))
-    Text("Reps: $reps", style = MaterialTheme.typography.headlineSmall)
-
-    Spacer(Modifier.height(16.dp))
-    Button(
-        onClick = { onLog(weightText.toDoubleOrNull() ?: 0.0, reps) },
-        enabled = weightText.toDoubleOrNull() != null,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text("Log set")
-    }
-}
-
-/**
- * The stall. Worded as the end of a block rather than a failure, because that is what it is:
- * the protocol's own signal that the gap between sessions is now too short.
- */
-@Composable
-private fun StalledStage(exerciseName: String, runNumber: Int, onEndSession: () -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Text("Stalled on $exerciseName", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "More than one rep short of target. That closes run $runNumber — the " +
-                    "remaining exercises aren't run, every weight you reached is kept, and " +
-                    "the next run trains on one more rest day.",
-                style = MaterialTheme.typography.bodyMedium
-            )
-            Spacer(Modifier.height(16.dp))
-            Button(onClick = onEndSession, modifier = Modifier.fillMaxWidth()) {
-                Text("Close run $runNumber")
-            }
-        }
-    }
-}
-
-@Composable
-private fun TabataStage(
-    defaultBellWeightKg: Double,
-    onRoundLogged: (Int, Int, Double) -> Unit,
-    onFinished: () -> Unit
-) {
-    var round by remember { mutableIntStateOf(1) }
-    var working by remember { mutableStateOf(true) }
-    var swings by remember { mutableIntStateOf(0) }
-
-    Text("Kettlebell Tabata", style = MaterialTheme.typography.titleLarge)
-    Text(
-        "Round $round of ${TrainingConstants.TABATA_ROUNDS} · " +
-            "${TrainingConstants.TABATA_WORK_SEC}s work / ${TrainingConstants.TABATA_REST_SEC}s rest",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-
-    if (working) {
-        CountdownBlock(
-            totalSec = TrainingConstants.TABATA_WORK_SEC,
-            label = "swing",
-            autoStart = true,
-            secondary = "Swing",
-            onFinished = { working = false }
-        )
+    val weight = weightText.toDoubleOrNull()
+    if (weight != null) {
+        WorkingSetTimer(onFailure = { tulSec -> onLog(weight, tulSec) })
     } else {
-        CountdownBlock(
-            totalSec = TrainingConstants.TABATA_REST_SEC,
-            label = "rest",
-            autoStart = true,
-            secondary = "Rest — log the round",
-            onFinished = { _ ->
-                onRoundLogged(round, swings, defaultBellWeightKg)
-                if (round >= TrainingConstants.TABATA_ROUNDS) {
-                    onFinished()
-                } else {
-                    round += 1
-                    working = true
-                }
-            }
-        )
-        Spacer(Modifier.height(8.dp))
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedButton(onClick = { if (swings > 0) swings -= 1 }) { Text("−1") }
-            Text("$swings swings", style = MaterialTheme.typography.titleMedium)
-            OutlinedButton(onClick = { swings += 1 }) { Text("+1") }
-        }
         Text(
-            "The count carries into the next round, so a steady pace needs no retyping.",
-            style = MaterialTheme.typography.bodySmall,
+            "Enter a weight to start the set.",
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-
-    Spacer(Modifier.height(16.dp))
-    OutlinedButton(onClick = onFinished) { Text("End kettlebell block") }
-}
-
-@Composable
-private fun AbsStage(onFinished: () -> Unit) {
-    Text("Six-Minute Abs", style = MaterialTheme.typography.titleLarge)
-    Text(
-        "Optional block: myotatic crunch, then cat vomit.",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-    CountdownBlock(
-        totalSec = TrainingConstants.SIX_MINUTE_ABS_SEC,
-        label = "abs block",
-        autoStart = false,
-        onFinished = { onFinished() }
-    )
 }
 
 /**
  * How a session ends is what is remembered of it, so it ends on the reward rather than on a
  * receipt. A session inside a run ends on the weights it just earned for next time; a session
- * whose stall closed the run ends on everything the whole run banked.
+ * whose plateau closed the run ends on everything the whole run banked.
  */
 @Composable
 private fun SummaryStage(stage: SessionStage.Summary, onDone: () -> Unit) {
@@ -482,9 +317,9 @@ private fun RunCompleteStage(summary: RunSummary, restDaysNow: Int) {
         }
         Spacer(Modifier.height(10.dp))
         Text(
-            summary.stalledOn?.let {
-                "The stall on $it is the protocol asking for a wider gap — it is how the " +
-                    "block is meant to end, not a session you got wrong."
+            summary.plateauedOn?.let {
+                "$it stopped beating its own clock — that's the protocol asking for a wider " +
+                    "gap, not a session you got wrong."
             } ?: "Run closed. The next block trains on more rest.",
             style = MaterialTheme.typography.bodySmall,
             color = Palette.TextSecondary
@@ -523,8 +358,8 @@ private fun SessionLoggedStage(stage: SessionStage.Summary) {
             }
             Spacer(Modifier.height(10.dp))
             Text(
-                "Next session in ${stage.restDaysNow} days. These are the numbers waiting " +
-                    "for you.",
+                "Past ${TrainingConstants.TUL_CEILING_SEC}s under load — next session in " +
+                    "${stage.restDaysNow} days at these numbers.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Palette.EmberText
             )
@@ -532,8 +367,8 @@ private fun SessionLoggedStage(stage: SessionStage.Summary) {
     } else {
         SurfacePanel(label = "LOGGED") {
             Text(
-                "Targets weren't all hit, so weights stay where they are. The run continues " +
-                    "on the same numbers.",
+                "Nothing crossed ${TrainingConstants.TUL_CEILING_SEC}s, so weights stay where " +
+                    "they are. Beat the clock next time, not the bar.",
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(8.dp))

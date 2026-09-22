@@ -96,11 +96,12 @@ fun TrainingHomeScreen(
         item {
             SectionCard(
                 title = "Protocol",
-                subtitle = "Target ${TrainingConstants.DEFAULT_TARGET_REPS}+ reps to failure " +
-                    "(${TrainingConstants.LEG_PRESS_TARGET_REPS}+ on leg press), " +
+                subtitle = "One set to positive failure per exercise, " +
                     "${TrainingConstants.TEMPO_UP_SEC}s up / ${TrainingConstants.TEMPO_DOWN_SEC}s " +
-                    "down, ${TrainingConstants.REST_BETWEEN_EXERCISES_SEC / 60} minutes between " +
-                    "exercises. A miss of more than one rep ends the session and adds a rest day."
+                    "down as a cadence guide, ${TrainingConstants.REST_BETWEEN_EXERCISES_SEC}s " +
+                    "between exercises. Time under load is the real measure — past " +
+                    "${TrainingConstants.TUL_CEILING_SEC}s earns more weight next time; failing " +
+                    "to beat last time's clock closes the run and adds a rest day."
             )
         }
 
@@ -151,7 +152,7 @@ fun TrainingHomeScreen(
                 Text(
                     when {
                         !session.completed -> "Abandoned"
-                        session.stalled -> "Stalled — rest days increased"
+                        session.plateaued -> "Plateaued — rest days increased"
                         else -> "Completed"
                     },
                     style = MaterialTheme.typography.bodySmall,
@@ -209,7 +210,7 @@ private fun FinishedRunRow(run: RunSummary) {
             Text(
                 "${run.sessions} ${if (run.sessions == 1) "session" else "sessions"} · " +
                     "${run.days} days" +
-                    (run.stalledOn?.let { " · stalled on $it" } ?: ""),
+                    (run.plateauedOn?.let { " · plateaued on $it" } ?: ""),
                 style = MaterialTheme.typography.bodySmall,
                 color = Palette.TextSecondary
             )
@@ -220,7 +221,7 @@ private fun FinishedRunRow(run: RunSummary) {
 
 /**
  * No run is open. Rendering nothing here was the whole problem: the app is built around runs
- * and, until one had been started and then stalled, it never said the word. A run that has
+ * and, until one had been started and then plateaued, it never said the word. A run that has
  * not begun still has a number and still says what it is for.
  */
 @Composable
@@ -255,10 +256,11 @@ private fun NotStartedRunStrip(
         Spacer(Modifier.height(8.dp))
         Text(
             restDays?.let {
-                "It opens on your next session and runs on $it days rest, closing when you " +
-                    "first miss a target by more than a rep. Every weight it earns is kept."
-            } ?: "It opens on your first session and closes when you first miss a target by " +
-                "more than a rep. Every weight it earns is kept.",
+                "It opens on your next session and runs on $it days rest, closing the first " +
+                    "time an exercise fails to beat its own last time under load. Every " +
+                    "weight it earns is kept."
+            } ?: "It opens on your first session and closes the first time an exercise fails " +
+                "to beat its own last time under load. Every weight it earns is kept.",
             style = MaterialTheme.typography.bodyMedium,
             color = Palette.EmberText
         )

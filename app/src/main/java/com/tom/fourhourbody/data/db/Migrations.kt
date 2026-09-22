@@ -96,5 +96,112 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+/**
+ * Body by Science replaces Occam's Protocol: every non-training pillar (stretches, nutrition,
+ * sleep, cold exposure, creatine) is dropped, and training itself moves from rep targets to
+ * time under load. Nothing here is a destructive fallback — every table drop below is a
+ * feature that no longer exists, not a shortcut around a real migration, and every table that
+ * still exists keeps its rows.
+ *
+ * Old sessions and exercise logs are preserved as raw history: they were logged under the old
+ * protocol, so their `tulSec` is genuinely unknown (defaulted to 0) rather than backfilled
+ * with a fabricated number. `sessions.stalled` keeps its column name via `@ColumnInfo` — the
+ * Kotlin property renamed to `plateaued`, the stored data did not need to move.
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        listOf(
+            "stretch_configs",
+            "stretch_logs",
+            "diet_day_logs",
+            "damage_control_logs",
+            "sleep_logs",
+            "cold_exposure_logs",
+            "creatine_logs",
+            "kettlebell_rounds"
+        ).forEach { table -> db.execSQL("DROP TABLE IF EXISTS `$table`") }
+
+        db.execSQL("ALTER TABLE sessions ADD COLUMN plateauedOnExercise TEXT")
+
+        db.execSQL(
+            """
+            CREATE TABLE `exercise_logs_new` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `sessionId` INTEGER NOT NULL,
+                `exerciseName` TEXT NOT NULL,
+                `equipment` TEXT NOT NULL,
+                `weightKg` REAL NOT NULL,
+                `tulSec` INTEGER NOT NULL DEFAULT 0,
+                `reps` INTEGER NOT NULL DEFAULT 0,
+                `restSecActual` INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO `exercise_logs_new`
+                (`id`, `sessionId`, `exerciseName`, `equipment`, `weightKg`, `tulSec`, `reps`, `restSecActual`)
+            SELECT `id`, `sessionId`, `exerciseName`, `equipment`, `weightKg`, 0, `reps`, `restSecActual`
+            FROM `exercise_logs`
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE `exercise_logs`")
+        db.execSQL("ALTER TABLE `exercise_logs_new` RENAME TO `exercise_logs`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_exercise_logs_sessionId` ON `exercise_logs` (`sessionId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_exercise_logs_exerciseName` ON `exercise_logs` (`exerciseName`)")
+
+        db.execSQL(
+            """
+            CREATE TABLE `exercise_configs_new` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `slotName` TEXT NOT NULL,
+                `exerciseName` TEXT NOT NULL,
+                `equipment` TEXT NOT NULL,
+                `isActive` INTEGER NOT NULL DEFAULT 1,
+                `orderIndex` INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent()
+        )
+        // The kettlebell slot has no Big Five equivalent — it is dropped, not carried over
+        // as a dead row someone would otherwise find sitting inactive in Exercises.
+        db.execSQL(
+            """
+            INSERT INTO `exercise_configs_new`
+                (`id`, `slotName`, `exerciseName`, `equipment`, `isActive`, `orderIndex`)
+            SELECT `id`, `slotName`, `exerciseName`, `equipment`, `isActive`, `orderIndex`
+            FROM `exercise_configs`
+            WHERE `exerciseName` != 'Kettlebell swings'
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE `exercise_configs`")
+        db.execSQL("ALTER TABLE `exercise_configs_new` RENAME TO `exercise_configs`")
+
+        db.execSQL(
+            """
+            CREATE TABLE `settings_new` (
+                `id` INTEGER PRIMARY KEY NOT NULL,
+                `reminderTimeMinutes` INTEGER NOT NULL DEFAULT 1080,
+                `weighInDay` INTEGER NOT NULL DEFAULT 6,
+                `weighInTimeMinutes` INTEGER NOT NULL DEFAULT 480,
+                `trainingIntention` TEXT,
+                `firstSetCueDismissed` INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO `settings_new`
+                (`id`, `reminderTimeMinutes`, `weighInDay`, `weighInTimeMinutes`,
+                 `trainingIntention`, `firstSetCueDismissed`)
+            SELECT `id`, `reminderTimeMinutes`, `weighInDay`, `weighInTimeMinutes`,
+                   `trainingIntention`, `lockedPositionCueDismissed`
+            FROM `settings`
+            """.trimIndent()
+        )
+        db.execSQL("DROP TABLE `settings`")
+        db.execSQL("ALTER TABLE `settings_new` RENAME TO `settings`")
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> =
-    arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+    arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)

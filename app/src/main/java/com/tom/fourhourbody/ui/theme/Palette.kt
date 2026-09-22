@@ -1,12 +1,11 @@
 package com.tom.fourhourbody.ui.theme
 
 import androidx.compose.ui.graphics.Color
-import com.tom.fourhourbody.data.entity.Pillar
 import com.tom.fourhourbody.domain.deck.CardTier
 
 /**
- * One accent carries "act now"; the pillar hues only carry identity. Keeping ember
- * exclusive to actions is what lets the eye find the thing to do without reading.
+ * One accent carries "act now" — ember is exclusive to actions, which is what lets the eye
+ * find the thing to do without reading.
  */
 object Palette {
     val Ground = Color(0xFF0E1113)
@@ -30,12 +29,8 @@ object Palette {
     val Warn = Color(0xFFE5654B)
     val GainSurface = Color(0xFF2B3A22)
 
-    val Training = Ember
-    val Stretches = Color(0xFF4ECDC4)
-    val Nutrition = Color(0xFF9BC53D)
-    val Sleep = Color(0xFF6C8AE4)
-    val Cold = Color(0xFF56B4E9)
-    val Creatine = Color(0xFFC678DD)
+    /** The theme's secondary — used sparingly, well away from ember's "act now" job. */
+    val Secondary = Color(0xFF9BC53D)
 
     // ---- The character sheet ----------------------------------------------------------
     //
@@ -69,14 +64,5 @@ object Palette {
         CardTier.OPENING -> RarityOpening
         CardTier.ESTABLISHED -> RarityEstablished
         CardTier.CORNERSTONE -> RarityCornerstone
-    }
-
-    fun of(pillar: Pillar): Color = when (pillar) {
-        Pillar.TRAINING -> Training
-        Pillar.STRETCHES -> Stretches
-        Pillar.NUTRITION -> Nutrition
-        Pillar.SLEEP -> Sleep
-        Pillar.COLD -> Cold
-        Pillar.CREATINE -> Creatine
     }
 }

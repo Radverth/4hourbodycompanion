@@ -4,8 +4,9 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 /**
- * Frequency is rule-driven, not a fixed Mon/Thu. The gap starts at two rest days and grows by
- * one every time a session stalls, which is the book's actual mechanism for backing off.
+ * Frequency is rule-driven, not a fixed Mon/Thu. The gap starts at six rest days — once every
+ * seven — and grows by one every time a session plateaus, which is the book's actual mechanism
+ * for backing off as a trainee gets stronger.
  */
 object SessionScheduler {
 
@@ -28,8 +29,8 @@ object SessionScheduler {
         return maxOf(0L, ChronoUnit.DAYS.between(today, next))
     }
 
-    /** Applied when a session stalls: one more rest day for everything that follows. */
-    fun restDaysAfterStall(currentRestDays: Int): Int = currentRestDays + 1
+    /** Applied when a session plateaus: one more rest day for everything that follows. */
+    fun restDaysAfterPlateau(currentRestDays: Int): Int = currentRestDays + 1
 
     /** How many sessions the current gap would fit into a window of [windowDays] days. */
     fun expectedSessionsIn(windowDays: Int, restDaysBetween: Int): Int {
