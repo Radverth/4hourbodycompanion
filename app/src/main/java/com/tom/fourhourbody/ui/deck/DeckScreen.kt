@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,44 +15,57 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.tom.fourhourbody.domain.adherence.PillarAdherence
 import com.tom.fourhourbody.domain.deck.CardKind
 import com.tom.fourhourbody.domain.deck.CardTier
 import com.tom.fourhourbody.domain.deck.Deck
 import com.tom.fourhourbody.domain.deck.DeckCard
+import com.tom.fourhourbody.domain.progress.Attribute
 import com.tom.fourhourbody.domain.progress.Milestone
 import com.tom.fourhourbody.domain.progress.Milestones
 import com.tom.fourhourbody.domain.progress.Stats
 import com.tom.fourhourbody.domain.synergy.SynergyState
 import com.tom.fourhourbody.ui.common.rememberContainer
-import com.tom.fourhourbody.ui.theme.NumeralLarge
-import com.tom.fourhourbody.ui.theme.NumeralMedium
-import com.tom.fourhourbody.ui.theme.NumeralSmall
 import com.tom.fourhourbody.ui.theme.Palette
+import com.tom.fourhourbody.ui.theme.PanelShape
+import com.tom.fourhourbody.ui.theme.RunicLabel
+import com.tom.fourhourbody.ui.theme.RunicNumeral
+import com.tom.fourhourbody.ui.theme.RunicTag
+import com.tom.fourhourbody.ui.theme.RunicValue
+import com.tom.fourhourbody.ui.theme.RunicTitle
 import com.tom.fourhourbody.util.kgDisplay
 
 /**
- * The deck: every protocol and every exercise you own, as cards, in one place.
+ * The character sheet.
  *
- * The point of collecting them here is that the app's commitments are otherwise scattered
- * across six screens, so it is impossible to see what you are actually running. A tier is
- * only ever a reading of the log — the number that produced it sits on the card, and a card
- * is benched rather than deleted, so nothing you built is ever thrown away.
+ * An action RPG's character panel is a readout of what the player did: attributes derived from
+ * history, gear describing the loadout, a quest log of what is nearly done. This app already
+ * held all three and was showing them as a tracker, so what changed here is the language and
+ * the frame, not the arithmetic. Every number on this screen was already in the database.
+ *
+ * The ornament stops at this screen. Today stays bare, because one is inspected and the other
+ * is acted on.
  */
 @Composable
 fun DeckScreen() {
@@ -59,420 +73,365 @@ fun DeckScreen() {
     val viewModel: DeckViewModel = viewModel(factory = DeckViewModel.factory(container))
     val deck by viewModel.deck.collectAsStateWithLifecycle()
     val synergies by viewModel.synergies.collectAsStateWithLifecycle()
-    val adherence by viewModel.adherence.collectAsStateWithLifecycle()
     val stats by viewModel.stats.collectAsStateWithLifecycle()
+    val attributes by viewModel.attributes.collectAsStateWithLifecycle()
+
+    var inspecting by remember { mutableStateOf<DeckCard?>(null) }
 
     val current = deck
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        item { Text("Your deck", style = MaterialTheme.typography.headlineMedium) }
+    Box(Modifier.fillMaxSize().background(Palette.Ground2)) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item { LevelPlate(stats) }
 
-        item { CharacterSheet(stats) }
-
-        val quests = Milestones.questLog(stats)
-        if (quests.isNotEmpty()) {
-            item {
-                SectionLabel("QUESTS")
-                Text(
-                    "The nearest target on each track. Reaching one is a level, and every " +
-                        "level is a thing you did, not points you accumulated.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Palette.TextSecondary
-                )
-            }
-            items(quests, key = { it.id }) { quest -> QuestRow(quest, stats) }
-            item { Spacer(Modifier.height(6.dp)) }
-        }
-
-        if (current == null) {
-            item { Text("Loading…", color = Palette.TextSecondary) }
-            return@LazyColumn
-        }
-
-        item { DeckHeadline(current) }
-
-        if (adherence.isNotEmpty()) {
-            item {
-                SectionLabel("LAST 30 DAYS")
-                Spacer(Modifier.height(10.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    adherence.forEach { entry -> AdherenceBar(entry) }
+            if (attributes.isNotEmpty()) {
+                item {
+                    Panel("ATTRIBUTES") {
+                        attributes.forEach { AttributeRow(it) }
+                    }
                 }
             }
-        }
 
-        if (synergies.isNotEmpty()) {
-            item {
-                SectionLabel("COMBOS")
-                Text(
-                    "Pairings the book itself makes, where doing both does more than doing " +
-                        "either. Nothing is scored — these only report what landed together.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Palette.TextSecondary
-                )
+            if (current != null) {
+                item {
+                    Panel("LOADOUT") {
+                        current.of(CardKind.EXERCISE).forEach { card ->
+                            ItemRow(card) { inspecting = card }
+                        }
+                    }
+                }
+
+                item {
+                    Panel("PROTOCOLS") {
+                        current.of(CardKind.PILLAR).forEach { card ->
+                            ItemRow(card) { viewModel.toggle(card) }
+                        }
+                    }
+                }
             }
-            items(synergies, key = { it.synergy.id }) { state -> SynergyRow(state) }
-            item { Spacer(Modifier.height(6.dp)) }
-        }
 
-        item { SectionLabel("IN PLAY") }
-        cardRows(current.inDeck, viewModel::toggle)
-
-        if (current.bench.isNotEmpty()) {
-            item {
-                Spacer(Modifier.height(6.dp))
-                SectionLabel("BENCHED")
-                Text(
-                    "Still yours. Tap one to put it back — it returns at the tier it earned.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Palette.TextSecondary
-                )
+            val quests = Milestones.questLog(stats)
+            if (quests.isNotEmpty()) {
+                item {
+                    Panel("QUEST LOG") {
+                        quests.forEach { QuestRow(it, stats) }
+                    }
+                }
             }
-            cardRows(current.bench, viewModel::toggle)
+
+            combosPanel(synergies)
         }
+    }
+
+    inspecting?.let { card ->
+        ItemTooltip(card) { inspecting = null }
     }
 }
 
-/** Two cards to a row, built from plain Rows so the layout uses nothing exotic. */
-private fun LazyListScope.cardRows(
-    cards: List<DeckCard>,
-    onToggle: (DeckCard) -> Unit
-) {
-    val rows = cards.chunked(2)
-    rows.forEachIndexed { index, row ->
-        item(key = "row-${row.first().id}-$index") {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                row.forEach { card ->
-                    CardTile(card, Modifier.weight(1f)) { onToggle(card) }
-                }
-                if (row.size == 1) Spacer(Modifier.weight(1f))
-            }
-        }
-    }
-}
+// ---------------------------------------------------------------------------------------
+// Frames
+// ---------------------------------------------------------------------------------------
 
 @Composable
-private fun DeckHeadline(deck: Deck) {
+private fun Panel(
+    header: String,
+    lit: Boolean = false,
+    content: @Composable ColumnScope.() -> Unit
+) {
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Palette.Surface)
-            .padding(18.dp)
-    ) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text("${deck.inDeck.size}", style = NumeralLarge)
-            Text(
-                " cards in play",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Palette.TextSecondary,
-                modifier = Modifier.padding(bottom = 6.dp)
-            )
-        }
-        Text(
-            "${deck.played} of them have actually been run. A card you have never played " +
-                "counts for nothing until you do.",
-            style = MaterialTheme.typography.bodySmall,
-            color = Palette.TextSecondary
-        )
-    }
-}
-
-@Composable
-private fun SectionLabel(text: String) {
-    Text(text, style = MaterialTheme.typography.labelSmall, color = Palette.TextTertiary)
-}
-
-@Composable
-private fun CardTile(card: DeckCard, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val colour = Palette.of(card.pillar)
-    val faded = !card.inDeck || card.tier == CardTier.UNPLAYED
-
-    Column(
-        modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (card.inDeck) Palette.Surface else Palette.Ground)
-            .border(
-                width = 1.dp,
-                color = if (card.inDeck) Palette.LineStrong else Palette.Line,
-                shape = RoundedCornerShape(14.dp)
-            )
-            .clickable(onClick = onClick)
+            .clip(PanelShape)
+            .background(if (lit) Palette.PanelLit else Palette.PanelDark)
+            .border(1.dp, if (lit) Palette.BrassDim else Palette.RuleDark, PanelShape)
             .padding(14.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TierPips(card.tier, if (faded) Palette.DotEmpty else colour)
-            Spacer(Modifier.weight(1f))
-            if (card.kind == CardKind.PILLAR) {
-                Text(
-                    "PROTOCOL",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Palette.TextTertiary
-                )
-            }
-        }
-
-        // The fact leads and the tier trails it. A tier is a label stuck on a count, and a
-        // label that outranks the thing it summarises is the point where a game layer stops
-        // describing the work and starts replacing it.
-        Spacer(Modifier.height(8.dp))
-        Text(
-            card.name,
-            style = MaterialTheme.typography.titleMedium,
-            color = if (card.inDeck) Palette.TextPrimary else Palette.TextSecondary
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(card.detail, style = MaterialTheme.typography.bodySmall, color = Palette.TextSecondary)
-        Spacer(Modifier.height(6.dp))
-        Text(
-            card.tier.label.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = if (faded) Palette.TextTertiary else colour
-        )
-
-        card.gainKg?.takeIf { it > 0.01 }?.let { gain ->
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "+${gain.kgDisplay()} since the first time",
-                style = MaterialTheme.typography.bodySmall,
-                color = Palette.Gain
-            )
-        }
+        Text(header, style = RunicLabel, color = Palette.BrassDim)
+        Spacer(Modifier.height(9.dp))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.RuleDark))
+        Spacer(Modifier.height(9.dp))
+        content()
     }
 }
 
-/** Three pips, one per tier above unplayed. Readable without reading the label. */
 @Composable
-private fun TierPips(tier: CardTier, colour: Color) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        repeat(CardTier.entries.size - 1) { index ->
-            Box(
-                Modifier
-                    .size(7.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(if (index < tier.ordinal) colour else Palette.DotEmpty)
-            )
-        }
-    }
-}
-
-/**
- * One combo. A synergy that has fired today says so; one with a half still open says which
- * half — that is the only part of this worth acting on, so it gets the accent.
- */
-@Composable
-private fun SynergyRow(state: SynergyState) {
-    val synergy = state.synergy
-    val live = state.halfOpen
-    val accent = if (live) Palette.Ember else Palette.of(synergy.pillars.first())
-
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (live) Palette.EmberSurface else Palette.Surface)
-            .border(
-                width = 1.dp,
-                color = if (live) Palette.EmberLine else Palette.Line,
-                shape = RoundedCornerShape(14.dp)
-            )
-            .padding(16.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            synergy.pillars.forEach { pillar ->
-                Box(
-                    Modifier
-                        .size(8.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(Palette.of(pillar))
-                )
-                Spacer(Modifier.size(5.dp))
-            }
-            Text(
-                synergy.name,
-                style = MaterialTheme.typography.titleMedium,
-                color = Palette.TextPrimary
-            )
-            Spacer(Modifier.weight(1f))
-            Text(
-                when {
-                    state.firedToday -> "TODAY"
-                    state.everFired -> "${state.timesInWindow}× in ${state.windowDays}d"
-                    else -> "NOT YET"
-                },
-                style = MaterialTheme.typography.labelSmall,
-                color = if (state.firedToday) accent else Palette.TextTertiary
-            )
-        }
-
-        Spacer(Modifier.height(8.dp))
-        Text(synergy.what, style = MaterialTheme.typography.bodyMedium, color = Palette.TextSecondary)
-        Spacer(Modifier.height(6.dp))
-        Text(synergy.why, style = MaterialTheme.typography.bodySmall, color = Palette.TextTertiary)
-
-        if (live) {
-            Spacer(Modifier.height(10.dp))
-            Text(
-                synergy.prompt,
-                style = MaterialTheme.typography.labelLarge,
-                color = Palette.Ember
-            )
-        }
-    }
-}
-
-/** One pillar's rate over the window. Moved here from Today, where it was review, not action. */
-@Composable
-private fun AdherenceBar(entry: PillarAdherence) {
-    val colour = Palette.of(entry.pillar)
-    Column(Modifier.fillMaxWidth()) {
-        // The label and the detail used to share one row, the label weighted and the detail
-        // unconstrained — so the detail took its full width and squeezed "Static stretches"
-        // narrower than its longest word, which breaks text one character per line. Giving
-        // the detail its own line removes the competition rather than tuning around it.
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                entry.pillar.label,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f)
-            )
-            Text("${entry.percent}%", style = NumeralSmall)
-        }
-        Spacer(Modifier.height(2.dp))
-        Text(
-            entry.detail,
-            style = MaterialTheme.typography.bodySmall,
-            color = Palette.TextTertiary
-        )
-        Spacer(Modifier.height(6.dp))
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(5.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(Palette.DotEmpty)
-        ) {
-            // fillMaxWidth rejects a zero fraction, and an empty bar is a real state.
-            if (entry.percent > 0) {
-                Box(
-                    Modifier
-                        .fillMaxWidth(entry.percent / 100f)
-                        .height(5.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(colour)
-                )
-            }
-        }
-    }
-}
-
-/**
- * Level, and what it is made of.
- *
- * The count of milestones is shown next to the level on purpose: "Level 7" on its own is the
- * kind of number that could mean anything, and "7 of 16" says immediately that it is a
- * fraction of a finite, listable set rather than a bar that goes up forever.
- */
-@Composable
-private fun CharacterSheet(stats: Stats) {
+private fun LevelPlate(stats: Stats) {
     val level = Milestones.level(stats)
-    val total = Milestones.ALL.size
     val next = Milestones.nextUp(stats)
 
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Palette.EmberSurface)
-            .border(1.dp, Palette.EmberLine, RoundedCornerShape(16.dp))
-            .padding(18.dp)
+            .clip(PanelShape)
+            .background(Palette.PanelLit)
+            .border(1.dp, Palette.BrassDim, PanelShape)
+            .padding(16.dp)
     ) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text("LEVEL", style = MaterialTheme.typography.labelSmall, color = Palette.EmberText)
-            Spacer(Modifier.size(8.dp))
-            Text("$level", style = NumeralLarge, color = Palette.Ember)
-            Spacer(Modifier.weight(1f))
-            Text(
-                "$level of $total milestones",
-                style = MaterialTheme.typography.bodySmall,
-                color = Palette.EmberText,
-                modifier = Modifier.padding(bottom = 6.dp)
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text("LEVEL", style = RunicLabel, color = Palette.BrassDim)
+                Text("$level", style = RunicNumeral, color = Palette.Brass)
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text("OCCAM", style = RunicTitle, color = Palette.Parchment)
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    "$level of ${Milestones.ALL.size} marks earned",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.ParchmentFaint
+                )
+            }
         }
 
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(10.dp))
         Text(
-            when {
-                level == 0 -> "Nothing passed yet. The first one is a single logged session."
-                next == null -> "Every milestone passed. There is nothing left for the app " +
-                    "to ask of you."
-                else -> "Next: ${next.title.lowercase()} — ${next.detail}"
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = Palette.EmberText
+            next?.let { "Next mark: ${it.title.lowercase()}" }
+                ?: "Every mark earned. Nothing left to ask of you.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Palette.ParchmentDim
         )
     }
 }
 
-/** One quest: what it is, how far along, and how far along in plain numbers. */
+// ---------------------------------------------------------------------------------------
+// Attributes — each carries the count it came from, so it can always be checked.
+// ---------------------------------------------------------------------------------------
+
+@Composable
+private fun AttributeRow(attribute: Attribute) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            attribute.name.uppercase(),
+            style = RunicLabel,
+            color = Palette.ParchmentDim,
+            modifier = Modifier.width(92.dp)
+        )
+        Text(
+            "${attribute.value}",
+            style = RunicValue,
+            color = Palette.Parchment,
+            textAlign = TextAlign.End,
+            modifier = Modifier.width(40.dp)
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            attribute.source,
+            style = MaterialTheme.typography.bodySmall,
+            color = Palette.ParchmentFaint,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// Items — exercises and protocols, with the tier as rarity.
+// ---------------------------------------------------------------------------------------
+
+@Composable
+private fun ItemRow(card: DeckCard, onClick: () -> Unit) {
+    val rarity = if (card.inDeck) Palette.ofTier(card.tier) else Palette.RarityUnplayed
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Gem(filled = card.inDeck && card.tier != CardTier.UNPLAYED, colour = rarity)
+        Spacer(Modifier.width(10.dp))
+        Text(
+            card.name,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (card.inDeck) Palette.Parchment else Palette.ParchmentFaint,
+            modifier = Modifier.weight(1f)
+        )
+        card.gainKg?.takeIf { it > 0.01 }?.let { gain ->
+            Text(
+                "+${gain.kgDisplay()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.ParchmentFaint
+            )
+            Spacer(Modifier.width(10.dp))
+        }
+        Text(
+            if (card.inDeck) card.tier.label.uppercase() else "BENCHED",
+            style = RunicTag,
+            color = rarity
+        )
+    }
+}
+
+/** A diamond rather than a dot — the socket an ARPG puts a gem in. */
+@Composable
+private fun Gem(filled: Boolean, colour: Color) {
+    Box(
+        Modifier
+            .size(9.dp)
+            .rotate(45f)
+            .then(
+                if (filled) {
+                    Modifier.background(colour)
+                } else {
+                    Modifier.border(1.dp, colour)
+                }
+            )
+    )
+}
+
+/**
+ * The tooltip every action RPG player reads without thinking about it. The affixes are the
+ * exercise's own history — nothing here is generated.
+ */
+@Composable
+private fun ItemTooltip(card: DeckCard, onDismiss: () -> Unit) {
+    val rarity = Palette.ofTier(card.tier)
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(Palette.Ground2)
+                .border(1.dp, rarity)
+                .padding(16.dp)
+        ) {
+            Text(
+                card.name.uppercase(),
+                style = RunicTitle,
+                color = rarity,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                if (card.kind == CardKind.PILLAR) "Protocol" else "Strength slot",
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.ParchmentFaint,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.height(12.dp))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.RuleDark))
+            Spacer(Modifier.height(12.dp))
+
+            Text(card.detail, style = MaterialTheme.typography.bodyMedium, color = Palette.Parchment)
+            card.gainKg?.takeIf { it > 0.01 }?.let { gain ->
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    "+${gain.kgDisplay()} since first logged",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Palette.RarityOpening
+                )
+            }
+            Spacer(Modifier.height(5.dp))
+            Text(
+                "${card.tier.label} · ${card.plays} ${if (card.plays == 1) "play" else "plays"}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Palette.RarityOpening
+            )
+
+            Spacer(Modifier.height(14.dp))
+            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                Text("Close", color = Palette.BrassDim)
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// Quests and combos
+// ---------------------------------------------------------------------------------------
+
 @Composable
 private fun QuestRow(quest: Milestone, stats: Stats) {
     val current = stats.current(quest.track)
 
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(Palette.Surface)
-            .padding(16.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 quest.title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Palette.Parchment,
                 modifier = Modifier.weight(1f)
             )
-            Text("$current", style = NumeralMedium, color = Palette.Ember)
             Text(
-                " / ${quest.target}",
-                style = MaterialTheme.typography.bodySmall,
-                color = Palette.TextTertiary,
-                modifier = Modifier.padding(bottom = 3.dp)
+                "$current / ${quest.target}",
+                style = RunicLabel,
+                color = Palette.Brass
             )
         }
-
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(5.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(Palette.DotEmpty)
+                .height(3.dp)
+                .background(Palette.Ground2)
         ) {
             val fraction = quest.fraction(stats)
             if (fraction > 0f) {
                 Box(
                     Modifier
                         .fillMaxWidth(fraction)
-                        .height(5.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(Palette.Ember)
+                        .height(3.dp)
+                        .background(Palette.Brass)
                 )
             }
         }
-
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         Text(
             quest.detail,
             style = MaterialTheme.typography.bodySmall,
-            color = Palette.TextSecondary
+            color = Palette.ParchmentFaint
         )
+    }
+}
+
+private fun LazyListScope.combosPanel(synergies: List<SynergyState>) {
+    if (synergies.isEmpty()) return
+    item {
+        Panel("COMBOS") {
+            synergies.forEach { state ->
+                val live = state.halfOpen
+                Column(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Gem(
+                            filled = state.firedToday || live,
+                            colour = if (live) Palette.Ember else Palette.BrassDim
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            state.synergy.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Palette.Parchment,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            when {
+                                state.firedToday -> "TODAY"
+                                state.everFired -> "${state.timesInWindow}×"
+                                else -> "—"
+                            },
+                            style = RunicLabel,
+                            color = if (state.firedToday) Palette.Ember else Palette.ParchmentFaint
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        if (live) state.synergy.prompt else state.synergy.what,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (live) Palette.Ember else Palette.ParchmentFaint
+                    )
+                }
+            }
+        }
     }
 }

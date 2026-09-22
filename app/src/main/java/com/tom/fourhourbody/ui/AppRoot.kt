@@ -52,7 +52,7 @@ private data class BottomItem(val route: String, val label: String, val icon: Im
 private val bottomItems = listOf(
     BottomItem(Routes.TODAY, "Today", Icons.Filled.Home),
     BottomItem(Routes.TRAINING, "Train", Icons.Filled.PlayArrow),
-    BottomItem(Routes.DECK, "Deck", Icons.Filled.Star),
+    BottomItem(Routes.DECK, "Character", Icons.Filled.Star),
     BottomItem(Routes.MORE, "More", Icons.Filled.MoreVert)
 )
 

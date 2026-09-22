@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.tom.fourhourbody.AppContainer
+import com.tom.fourhourbody.data.entity.Pillar
 import com.tom.fourhourbody.data.repo.DashboardRepository
 import com.tom.fourhourbody.data.repo.ProgressRepository
 import com.tom.fourhourbody.data.repo.SettingsRepository
@@ -15,6 +16,8 @@ import com.tom.fourhourbody.domain.deck.Deck
 import com.tom.fourhourbody.domain.deck.DeckBuilder
 import com.tom.fourhourbody.domain.adherence.PillarAdherence
 import com.tom.fourhourbody.domain.deck.DeckCard
+import com.tom.fourhourbody.domain.progress.Attribute
+import com.tom.fourhourbody.domain.progress.Attributes
 import com.tom.fourhourbody.domain.progress.Stats
 import com.tom.fourhourbody.domain.synergy.SynergyState
 import kotlinx.coroutines.flow.SharingStarted
@@ -61,6 +64,20 @@ class DeckViewModel(
     val adherence: StateFlow<List<PillarAdherence>> =
         dashboardRepository.adherence(LocalDate.now(), windowDays)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * The attribute block. Recovery, Resilience and Mobility come from the same adherence
+     * window the pillar tiers read, so the sheet never states two different truths.
+     */
+    val attributes: StateFlow<List<Attribute>> = combine(stats, adherence) { s, rows ->
+        fun completed(pillar: Pillar) = rows.firstOrNull { it.pillar == pillar }?.completed ?: 0
+        Attributes.of(
+            stats = s,
+            sleepNights = completed(Pillar.SLEEP),
+            coldSessions = completed(Pillar.COLD),
+            stretchDays = completed(Pillar.STRETCHES)
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** The book's own pairings, over the same window the pillar tiers read. */
     val synergies: StateFlow<List<SynergyState>> =

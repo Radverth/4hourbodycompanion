@@ -2,6 +2,7 @@ package com.tom.fourhourbody.ui.theme
 
 import androidx.compose.ui.graphics.Color
 import com.tom.fourhourbody.data.entity.Pillar
+import com.tom.fourhourbody.domain.deck.CardTier
 
 /**
  * One accent carries "act now"; the pillar hues only carry identity. Keeping ember
@@ -36,8 +37,39 @@ object Palette {
     val Cold = Color(0xFF56B4E9)
     val Creatine = Color(0xFFC678DD)
 
+    // ---- The character sheet ----------------------------------------------------------
+    //
+    // A warmer, sootier ground than the rest of the app, brass rules instead of grey lines,
+    // and parchment instead of white. Ember stays, as the top of the rarity ladder, so the
+    // two halves of the app still belong to each other.
+
+    val Ground2 = Color(0xFF0B0908)
+    val PanelDark = Color(0xFF17120D)
+    val PanelLit = Color(0xFF1F1811)
+    val RuleDark = Color(0xFF3A2E1F)
+
+    val Brass = Color(0xFFC9A227)
+    val BrassDim = Color(0xFF7A6520)
+    val Parchment = Color(0xFFE6DAC6)
+    val ParchmentDim = Color(0xFFA79880)
+    val ParchmentFaint = Color(0xFF6E6353)
+    val Blood = Color(0xFF8B2119)
+
+    /** The rarity ladder is [com.tom.fourhourbody.domain.deck.CardTier], not a new idea. */
+    val RarityUnplayed = Color(0xFF6B6259)
+    val RarityOpening = Color(0xFF5B8FB9)
+    val RarityEstablished = Brass
+    val RarityCornerstone = Ember
+
     /** Dimmed dot for a day that was missed, so the chain reads at a glance. */
     val DotEmpty = Color(0xFF2A3437)
+
+    fun ofTier(tier: CardTier): Color = when (tier) {
+        CardTier.UNPLAYED -> RarityUnplayed
+        CardTier.OPENING -> RarityOpening
+        CardTier.ESTABLISHED -> RarityEstablished
+        CardTier.CORNERSTONE -> RarityCornerstone
+    }
 
     fun of(pillar: Pillar): Color = when (pillar) {
         Pillar.TRAINING -> Training
