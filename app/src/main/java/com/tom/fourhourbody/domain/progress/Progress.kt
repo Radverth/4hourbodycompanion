@@ -150,3 +150,41 @@ object Milestones {
     /** The single closest thing to done, for the one-line summary. */
     fun nextUp(stats: Stats): Milestone? = questLog(stats, limit = 1).firstOrNull()
 }
+
+/**
+ * The character sheet's attribute block.
+ *
+ * Every one is a count already in the log, relabelled. [source] travels with the value on
+ * screen for that reason: an attribute you cannot trace back to something you did is the
+ * point where the sheet stops being a readout and starts being decoration.
+ */
+data class Attribute(
+    val name: String,
+    val value: Int,
+    val source: String
+)
+
+object Attributes {
+
+    /**
+     * One attribute per pillar, so the block covers the whole protocol rather than the parts
+     * that happened to be easy to count.
+     *
+     * @param sleepNights nights on protocol in the adherence window.
+     * @param coldSessions cold exposures logged in the adherence window.
+     * @param stretchDays days with a stretch logged in the adherence window.
+     */
+    fun of(
+        stats: Stats,
+        sleepNights: Int,
+        coldSessions: Int,
+        stretchDays: Int
+    ): List<Attribute> = listOf(
+        Attribute("Strength", stats.totalBankedKg.toInt(), "kg banked, closed runs"),
+        Attribute("Endurance", stats.sessionsCompleted, "sessions completed"),
+        Attribute("Discipline", stats.bestDietChain, "longest diet chain"),
+        Attribute("Mobility", stretchDays, "days stretched, 30d"),
+        Attribute("Recovery", sleepNights, "nights on protocol, 30d"),
+        Attribute("Resilience", coldSessions, "cold exposures, 30d")
+    )
+}

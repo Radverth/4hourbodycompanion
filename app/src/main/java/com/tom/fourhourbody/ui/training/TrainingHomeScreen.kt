@@ -114,8 +114,8 @@ fun TrainingHomeScreen(
 
         item {
             SectionCard(
-                title = "Your deck",
-                subtitle = "What every exercise and protocol has earned so far.",
+                title = "Character sheet",
+                subtitle = "Attributes, loadout and the quest log.",
                 onClick = onOpenDeck
             )
         }

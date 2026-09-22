@@ -37,7 +37,10 @@ import com.tom.fourhourbody.data.repo.RunStatus
 import com.tom.fourhourbody.domain.today.Focus
 import com.tom.fourhourbody.ui.common.rememberContainer
 import com.tom.fourhourbody.ui.nav.Routes
+import com.tom.fourhourbody.ui.theme.CalloutShape
+import com.tom.fourhourbody.ui.theme.ForgeButtonShape
 import com.tom.fourhourbody.ui.theme.Palette
+import com.tom.fourhourbody.ui.theme.RunicLabel
 import com.tom.fourhourbody.util.asTimeOfDay
 import com.tom.fourhourbody.util.displayLong
 import com.tom.fourhourbody.util.kgDisplay
@@ -194,12 +197,14 @@ private fun HeroCard(
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(CalloutShape)
             .background(Palette.EmberSurface)
-            .border(1.dp, Palette.EmberLine, RoundedCornerShape(18.dp))
+            .border(1.dp, Palette.EmberLine, CalloutShape)
             .padding(20.dp)
     ) {
-        Text(kicker, style = MaterialTheme.typography.labelSmall, color = Palette.EmberText)
+        // Today borrows the character sheet's voice and nothing else: the typeface and the
+        // bevel, not the brass frames. One screen is inspected, this one is acted on.
+        Text(kicker, style = RunicLabel, color = Palette.EmberText)
         Spacer(Modifier.height(8.dp))
         Text(headline, style = MaterialTheme.typography.headlineSmall)
 
@@ -212,10 +217,10 @@ private fun HeroCard(
             Spacer(Modifier.height(18.dp))
             Button(
                 onClick = onAction,
-                shape = RoundedCornerShape(12.dp),
+                shape = ForgeButtonShape,
                 modifier = Modifier.fillMaxWidth().height(52.dp)
             ) {
-                Text(action, style = MaterialTheme.typography.labelLarge)
+                Text(action.uppercase(), style = RunicLabel)
             }
         }
 
@@ -254,7 +259,7 @@ private fun ClearCard(
             .background(Palette.Surface)
             .padding(20.dp)
     ) {
-        Text("NOTHING LEFT", style = MaterialTheme.typography.labelSmall, color = Palette.TextTertiary)
+        Text("NOTHING LEFT", style = RunicLabel, color = Palette.TextTertiary)
         Spacer(Modifier.height(8.dp))
         Text(
             if (state.training.completedToday) "Session logged. Day's done." else "Day's done.",
