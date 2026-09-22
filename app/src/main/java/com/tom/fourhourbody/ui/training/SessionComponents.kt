@@ -103,6 +103,10 @@ fun TempoGuide(
     var elapsedMs by remember { mutableLongStateOf(0L) }
     var cyclesCounted by remember { mutableIntStateOf(0) }
 
+    // Which half of the cycle the last tick was in, so the turn can be announced the moment
+    // it changes. Starts true because every rep begins on the way up.
+    var wasGoingUp by remember { mutableStateOf(true) }
+
     // The callback is captured through rememberUpdatedState so the ticking coroutine always
     // increments the current rep count rather than the one it started with.
     val countRep by rememberUpdatedState { onRepsChange(reps + 1) }
@@ -118,6 +122,12 @@ fun TempoGuide(
                 cyclesCounted = completed
                 countRep()
                 Feedback.transitionTone(context)
+                wasGoingUp = true
+            } else {
+                // Mid-cycle: the lift has reached the top and has to start coming down.
+                val nowGoingUp = (value % cycleMs) < upMs
+                if (wasGoingUp && !nowGoingUp) Feedback.turnTone(context)
+                wasGoingUp = nowGoingUp
             }
         }
     }
@@ -135,6 +145,15 @@ fun TempoGuide(
             if (running) (if (goingUp) "UP" else "DOWN") else "Tempo paused",
             style = MaterialTheme.typography.displaySmall
         )
+        if (running) {
+            val phaseMs = if (goingUp) upMs else cycleMs - upMs
+            val leftSec = ((phaseMs - (if (goingUp) withinCycle else withinCycle - upMs)) / 1000L) + 1
+            Text(
+                "$leftSec",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Spacer(Modifier.height(8.dp))
         LinearProgressIndicator(
             progress = { phaseProgress.coerceIn(0f, 1f) },

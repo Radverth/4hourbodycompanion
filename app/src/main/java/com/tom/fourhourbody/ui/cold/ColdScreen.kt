@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tom.fourhourbody.data.entity.ColdExposureType
+import com.tom.fourhourbody.ui.common.ChipRow
 import com.tom.fourhourbody.ui.common.NumberField
 import com.tom.fourhourbody.ui.common.SectionCard
 import com.tom.fourhourbody.ui.common.rememberContainer
@@ -77,7 +78,7 @@ fun ColdScreen() {
 
         item {
             SectionCard(title = "Type") {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChipRow {
                     ColdExposureType.entries.forEach { option ->
                         FilterChip(
                             selected = type == option,

@@ -5,6 +5,9 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+/** Set by CI to the workflow run number; 0 when someone builds locally. */
+val buildNumber: Int = (System.getenv("BUILD_NUMBER") ?: "0").toIntOrNull() ?: 0
+
 android {
     namespace = "com.tom.fourhourbody"
     compileSdk = 35
@@ -13,8 +16,11 @@ android {
         applicationId = "com.tom.fourhourbody"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // Every APK this project shipped declared itself versionCode 1, so Android could not
+        // tell one build from the next and an install was never unambiguously an update.
+        // CI passes its run number; a local build stays at 1 and says "dev".
+        versionCode = 1 + buildNumber
+        versionName = if (buildNumber == 0) "1.0-dev" else "1.0 (build $buildNumber)"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -36,6 +42,9 @@ android {
 
     buildFeatures {
         compose = true
+        // So the app can show which build it is — a screenshot that names its own version
+        // ends any argument about whether an update actually landed.
+        buildConfig = true
     }
 
     packaging {
