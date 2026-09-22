@@ -86,12 +86,16 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 color = Palette.TextSecondary
                             )
                             Spacer(Modifier.height(8.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Two buttons this wide do not fit a phone row, and the loser gets
+                            // crushed to one letter per line. Flowing them lets the second drop
+                            // to its own line; the question above already supplies the context,
+                            // so the labels only need to carry the answer.
+                            ChipRow {
                                 OutlinedButton(onClick = { viewModel.anchorThisWeek(true) }) {
-                                    Text("This week is early")
+                                    Text("Early shift")
                                 }
                                 OutlinedButton(onClick = { viewModel.anchorThisWeek(false) }) {
-                                    Text("This week is late")
+                                    Text("Late shift")
                                 }
                             }
 
