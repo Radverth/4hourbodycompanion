@@ -9,13 +9,16 @@ import com.tom.fourhourbody.AppContainer
 import com.tom.fourhourbody.data.entity.ExerciseConfigEntity
 import com.tom.fourhourbody.data.entity.ExerciseLogEntity
 import com.tom.fourhourbody.data.entity.RunEnd
+import com.tom.fourhourbody.data.entity.SessionKind
 import com.tom.fourhourbody.data.entity.SettingsEntity
+import com.tom.fourhourbody.data.entity.StickingPointTechnique
 import com.tom.fourhourbody.data.repo.SettingsRepository
 import com.tom.fourhourbody.data.repo.TrainingRepository
 import com.tom.fourhourbody.domain.run.RunSummary
 import com.tom.fourhourbody.domain.training.ExerciseResult
 import com.tom.fourhourbody.domain.training.ProgressionEngine
 import com.tom.fourhourbody.domain.training.SessionEvaluation
+import com.tom.fourhourbody.domain.training.StickingPoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,13 +55,17 @@ data class RunProgress(
 data class ExercisePrompt(
     val config: ExerciseConfigEntity,
     val suggestedWeightKg: Double?,
+    val suggestedPosition: String?,
     val lastWeightKg: Double?,
     val lastTulSec: Int?,
+    val lastPosition: String?,
     /** Heaviest ever logged for this exercise — what a set has to beat to be a record. */
     val bestEverKg: Double?,
     val position: Int,
     val total: Int
 ) {
+    val isBodyweight: Boolean get() = config.isBodyweight
+
     /** A record is called while the weight is still on the bar, not in the summary. */
     fun isRecord(weightKg: Double): Boolean =
         bestEverKg != null && weightKg > bestEverKg + 0.01
@@ -78,6 +85,18 @@ class SessionViewModel(
     private val _settings = MutableStateFlow(SettingsEntity())
     val settings: StateFlow<SettingsEntity> = _settings.asStateFlow()
 
+    private val _kind = MutableStateFlow(SessionKind.STANDARD)
+    val kind: StateFlow<SessionKind> = _kind.asStateFlow()
+
+    /**
+     * The exercise stuck twice running, read once when the session is saved. Shown on the
+     * summary rather than offered mid-session: the techniques apply to the *next* attempt,
+     * and interrupting a session to suggest one would be the app pushing a tool its own
+     * source says to use sparingly.
+     */
+    private val _stickingPoint = MutableStateFlow<StickingPoint?>(null)
+    val stickingPoint: StateFlow<StickingPoint?> = _stickingPoint.asStateFlow()
+
     private var sessionId: Long = 0
     private var configs: List<ExerciseConfigEntity> = emptyList()
     private val results = mutableListOf<ExerciseResult>()
@@ -86,13 +105,22 @@ class SessionViewModel(
     /** Rest actually taken before the next exercise, carried into its log row. */
     private var pendingRestSec: Int = 0
 
-    init {
+    fun start(requestedKind: SessionKind) {
         viewModelScope.launch {
             val loaded = settingsRepository.current()
             _settings.value = loaded
-            configs = trainingRepository.activeStrengthConfigs()
+            val frequency = trainingRepository.frequency()
+            // A standard request becomes a cutting session when the phase is on; an explicit
+            // no-equipment request stays what it asked for.
+            val kind = if (requestedKind == SessionKind.STANDARD && frequency.cuttingPhaseActive) {
+                SessionKind.CUTTING
+            } else {
+                requestedKind
+            }
+            _kind.value = kind
+            configs = trainingRepository.exercisesFor(kind, loaded.bigThreeOnly)
 
-            sessionId = trainingRepository.startSession(today)
+            sessionId = trainingRepository.startSession(today, kind)
 
             if (loaded.firstSetCueDismissed) {
                 if (configs.isEmpty()) {
@@ -127,8 +155,10 @@ class SessionViewModel(
         _prompt.value = ExercisePrompt(
             config = config,
             suggestedWeightKg = trainingRepository.openingWeightFor(config),
+            suggestedPosition = trainingRepository.openingPositionFor(config),
             lastWeightKg = last?.weightKg,
             lastTulSec = last?.tulSec,
+            lastPosition = last?.position,
             bestEverKg = trainingRepository.bestEverFor(config.exerciseName),
             position = index + 1,
             total = configs.size
@@ -139,16 +169,18 @@ class SessionViewModel(
      * Log one exercise. Nothing in the book supports stopping a session over one result, so
      * every exercise always runs — whether the session plateaued is decided once, at the end.
      */
-    fun logExercise(index: Int, weightKg: Double, tulSec: Int) {
+    fun logExercise(index: Int, weightKg: Double, position: String?, tulSec: Int) {
         val config = configs.getOrNull(index) ?: return
         val previous = _prompt.value
         viewModelScope.launch {
+            val cleaned = position?.trim()?.takeIf { it.isNotEmpty() }
             trainingRepository.logExercise(
                 ExerciseLogEntity(
                     sessionId = sessionId,
                     exerciseName = config.exerciseName,
                     equipment = config.equipment,
                     weightKg = weightKg,
+                    position = cleaned,
                     tulSec = tulSec,
                     restSecActual = pendingRestSec
                 )
@@ -158,7 +190,9 @@ class SessionViewModel(
                 weightKg = weightKg,
                 tulSec = tulSec,
                 previousWeightKg = previous?.lastWeightKg,
-                previousTulSec = previous?.lastTulSec
+                previousTulSec = previous?.lastTulSec,
+                position = cleaned,
+                previousPosition = previous?.lastPosition
             )
             pendingRestSec = 0
 
@@ -179,6 +213,17 @@ class SessionViewModel(
     }
 
     fun skipToFinish() = finishSession()
+
+    fun logStickingPointTechnique(exerciseName: String, technique: StickingPointTechnique) {
+        viewModelScope.launch {
+            trainingRepository.logStickingPointTechnique(
+                sessionId = sessionId,
+                date = today,
+                exerciseName = exerciseName,
+                technique = technique
+            )
+        }
+    }
 
     /**
      * Saves the session and, when it plateaued, applies the book's frequency adjustment: one
@@ -210,6 +255,9 @@ class SessionViewModel(
             } else {
                 null
             }
+
+            // Read after the session row is saved, so this session's plateau counts toward it.
+            _stickingPoint.value = trainingRepository.stickingPoint()
 
             _stage.value = SessionStage.Summary(
                 evaluation = evaluation,

@@ -4,18 +4,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,9 +26,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tom.fourhourbody.data.entity.SessionKind
 import com.tom.fourhourbody.domain.run.RunSummary
 import com.tom.fourhourbody.domain.training.TrainingConstants
 import com.tom.fourhourbody.ui.common.SectionCard
+import com.tom.fourhourbody.ui.common.SwitchRow
 import com.tom.fourhourbody.ui.common.rememberContainer
 import com.tom.fourhourbody.ui.theme.NumeralMedium
 import com.tom.fourhourbody.ui.theme.NumeralSmall
@@ -37,7 +40,7 @@ import com.tom.fourhourbody.util.kgDisplay
 
 @Composable
 fun TrainingHomeScreen(
-    onStartSession: () -> Unit,
+    onStartSession: (SessionKind) -> Unit,
     onOpenHistory: () -> Unit,
     onOpenExercises: () -> Unit,
     onOpenDeck: () -> Unit
@@ -48,6 +51,11 @@ fun TrainingHomeScreen(
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
     val runs by viewModel.runs.collectAsStateWithLifecycle()
     val runStatus by viewModel.runStatus.collectAsStateWithLifecycle()
+    val frequency by viewModel.frequency.collectAsStateWithLifecycle()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val stickingPoint by viewModel.stickingPoint.collectAsStateWithLifecycle()
+    val cutting = frequency?.cuttingPhaseActive == true
+    val bigThree = settings?.bigThreeOnly == true
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -63,7 +71,7 @@ fun TrainingHomeScreen(
                 runStatus != null -> NotStartedRunStrip(
                     runNumber = runStatus!!.runNumber,
                     restDays = schedule?.restDaysBetween,
-                    onStartSession = onStartSession
+                    onStartSession = { onStartSession(SessionKind.STANDARD) }
                 )
             }
         }
@@ -87,9 +95,68 @@ fun TrainingHomeScreen(
                     }
                 }
             ) {
-                Button(onClick = onStartSession, modifier = Modifier.fillMaxWidth()) {
-                    Text("Start session")
+                Button(
+                    onClick = { onStartSession(SessionKind.STANDARD) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (cutting) "Start cutting session" else "Start session")
                 }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { onStartSession(SessionKind.NO_EQUIPMENT) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("No equipment tonight")
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Board and bodyweight, same stopwatch and same rules. On the board the " +
+                        "handle position is the resistance, so a position only moves on once " +
+                        "it has held past ${TrainingConstants.TUL_CEILING_SEC}s twice running.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.TextSecondary
+                )
+            }
+        }
+
+        item {
+            SectionCard(
+                title = "Fewer sets",
+                subtitle = "Two ways to cut volume, both applied when a session is generated " +
+                    "— your slot list is never edited, so either one switches back for free."
+            ) {
+                SwitchRow(
+                    label = "Cutting phase",
+                    checked = cutting,
+                    onCheckedChange = viewModel::setCuttingPhase,
+                    supporting = "Leg press plus one alternating upper-body exercise — chest " +
+                        "press one session, seated row the next."
+                )
+                Text(
+                    "For a sustained calorie deficit, not a single session. The book's own " +
+                        "fat-loss study found that cutting volume down during a deficit kept " +
+                        "twice the muscle and lost twice the fat, because dieting is already " +
+                        "spending the recovery the training needs.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.TextSecondary
+                )
+                Spacer(Modifier.height(12.dp))
+                SwitchRow(
+                    label = "Big Three only",
+                    checked = bigThree,
+                    onCheckedChange = viewModel::setBigThreeOnly,
+                    supporting = "Leg press, pulldown and chest press; drops the row and the " +
+                        "overhead press."
+                )
+            }
+        }
+
+        stickingPoint?.let { stuck ->
+            item {
+                StickingPointOffer(
+                    stickingPoint = stuck,
+                    onTechniqueLogged = { viewModel.logStickingPointTechnique(stuck.exerciseName, it) }
+                )
             }
         }
 

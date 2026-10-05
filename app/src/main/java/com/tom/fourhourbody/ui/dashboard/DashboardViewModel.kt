@@ -17,6 +17,7 @@ import com.tom.fourhourbody.domain.progress.Milestones
 import com.tom.fourhourbody.domain.today.Focus
 import com.tom.fourhourbody.domain.today.FocusInputs
 import com.tom.fourhourbody.domain.today.FocusRules
+import com.tom.fourhourbody.domain.training.SessionPlanner
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -77,17 +78,31 @@ class DashboardViewModel(
     /**
      * The reward for last session, surfaced before this one starts. The progression rule
      * already computes it; the app simply never showed it.
+     *
+     * Asks the planner for the session that would actually run rather than for every
+     * configured slot, so the cutting phase and the Big Three toggle are reflected here and
+     * the board rows — which only exist for a no-equipment night — are not listed as weights
+     * waiting on a machine.
      */
     private suspend fun loadNextWeights() {
-        _nextWeights.value = trainingRepository.activeStrengthConfigs().mapNotNull { config ->
-            val last = trainingRepository.lastLogFor(config.exerciseName) ?: return@mapNotNull null
-            val next = trainingRepository.openingWeightFor(config) ?: return@mapNotNull null
-            NextWeight(
-                exerciseName = config.exerciseName,
-                weightKg = next,
-                gainKg = next - last.weightKg
-            )
-        }
+        val frequency = trainingRepository.frequency()
+        val settings = settingsRepository.current()
+        val kind = SessionPlanner.kindFor(frequency.cuttingPhaseActive, hasEquipment = true)
+        _nextWeights.value = trainingRepository
+            .exercisesFor(kind, settings.bigThreeOnly)
+            .mapNotNull { config ->
+                val last = trainingRepository.lastLogFor(config.exerciseName)
+                    ?: return@mapNotNull null
+                val next = trainingRepository.openingWeightFor(config) ?: return@mapNotNull null
+                // Nothing to announce when the weight is unchanged: holding a weight is the
+                // normal case, and a row saying "same as last time" is not a reward.
+                if (next <= last.weightKg + 0.01) return@mapNotNull null
+                NextWeight(
+                    exerciseName = config.exerciseName,
+                    weightKg = next,
+                    gainKg = next - last.weightKg
+                )
+            }
     }
 
     companion object {

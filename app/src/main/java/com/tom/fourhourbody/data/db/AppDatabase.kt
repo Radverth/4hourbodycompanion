@@ -7,6 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.tom.fourhourbody.data.dao.MeasurementDao
 import com.tom.fourhourbody.data.dao.SettingsDao
+import com.tom.fourhourbody.data.dao.StickingPointDao
 import com.tom.fourhourbody.data.dao.TrainingDao
 import com.tom.fourhourbody.data.entity.ExerciseConfigEntity
 import com.tom.fourhourbody.data.entity.ExerciseLogEntity
@@ -15,6 +16,7 @@ import com.tom.fourhourbody.data.entity.MeasurementEntity
 import com.tom.fourhourbody.data.entity.RunEntity
 import com.tom.fourhourbody.data.entity.SessionEntity
 import com.tom.fourhourbody.data.entity.SettingsEntity
+import com.tom.fourhourbody.data.entity.StickingPointLogEntity
 
 /**
  * One database file for the whole app.
@@ -29,10 +31,11 @@ import com.tom.fourhourbody.data.entity.SettingsEntity
         ExerciseLogEntity::class,
         ExerciseConfigEntity::class,
         FrequencySettingEntity::class,
+        StickingPointLogEntity::class,
         MeasurementEntity::class,
         SettingsEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -41,6 +44,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun trainingDao(): TrainingDao
     abstract fun measurementDao(): MeasurementDao
     abstract fun settingsDao(): SettingsDao
+    abstract fun stickingPointDao(): StickingPointDao
 
     companion object {
         private const val NAME = "fourhourbody.db"

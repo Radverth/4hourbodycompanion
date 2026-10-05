@@ -203,5 +203,47 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
-val ALL_MIGRATIONS: Array<Migration> =
-    arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+/**
+ * Cutting phase, the Big Three toggle, no-equipment nights, and the sticking-point log.
+ *
+ * All additive. Nothing is dropped, rebuilt or rewritten: every existing row keeps its
+ * meaning, the new columns take defaults that mean "as before", and a session logged under
+ * version 6 reads back as a standard session because that is what it was.
+ */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Which exercise set a session ran. Everything already logged was a standard session.
+        db.execSQL("ALTER TABLE sessions ADD COLUMN kind TEXT NOT NULL DEFAULT 'STANDARD'")
+
+        // Seat, pin or handle setting. Null on existing rows rather than guessed: the setting
+        // used was not recorded, and inventing one would corrupt the comparison it exists for.
+        db.execSQL("ALTER TABLE exercise_logs ADD COLUMN position TEXT")
+
+        db.execSQL("ALTER TABLE frequency_setting ADD COLUMN cuttingPhaseActive INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE settings ADD COLUMN bigThreeOnly INTEGER NOT NULL DEFAULT 0")
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `sticking_point_logs` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `sessionId` INTEGER,
+                `date` INTEGER NOT NULL,
+                `exerciseName` TEXT NOT NULL,
+                `technique` TEXT NOT NULL,
+                `notes` TEXT
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_sticking_point_logs_sessionId` ON `sticking_point_logs` (`sessionId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_sticking_point_logs_date` ON `sticking_point_logs` (`date`)")
+    }
+}
+
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(
+    MIGRATION_1_2,
+    MIGRATION_2_3,
+    MIGRATION_3_4,
+    MIGRATION_4_5,
+    MIGRATION_5_6,
+    MIGRATION_6_7
+)

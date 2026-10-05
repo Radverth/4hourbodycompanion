@@ -1,5 +1,6 @@
 package com.tom.fourhourbody.data.repo
 
+import com.tom.fourhourbody.data.dao.StickingPointDao
 import com.tom.fourhourbody.data.dao.TrainingDao
 import com.tom.fourhourbody.data.entity.ExerciseConfigEntity
 import com.tom.fourhourbody.data.entity.ExerciseLogEntity
@@ -7,9 +8,17 @@ import com.tom.fourhourbody.data.entity.FrequencySettingEntity
 import com.tom.fourhourbody.data.entity.RunEnd
 import com.tom.fourhourbody.data.entity.RunEntity
 import com.tom.fourhourbody.data.entity.SessionEntity
+import com.tom.fourhourbody.data.entity.SessionKind
+import com.tom.fourhourbody.data.entity.StickingPointLogEntity
+import com.tom.fourhourbody.data.entity.StickingPointTechnique
 import com.tom.fourhourbody.domain.run.RunEngine
 import com.tom.fourhourbody.domain.run.RunSummary
+import com.tom.fourhourbody.domain.training.BoardPosition
 import com.tom.fourhourbody.domain.training.ProgressionEngine
+import com.tom.fourhourbody.domain.training.SessionPlanner
+import com.tom.fourhourbody.domain.training.Slots
+import com.tom.fourhourbody.domain.training.StickingPoint
+import com.tom.fourhourbody.domain.training.StickingPointRules
 import com.tom.fourhourbody.domain.training.SessionScheduler
 import com.tom.fourhourbody.domain.training.TrainingConstants
 import kotlinx.coroutines.flow.Flow
@@ -37,7 +46,13 @@ data class RunStatus(
     val started: Boolean
 )
 
-class TrainingRepository(private val dao: TrainingDao) {
+class TrainingRepository(
+    private val dao: TrainingDao,
+    private val stickingPointDao: StickingPointDao
+) {
+
+    /** How far back the position and plateau history is read. Several runs' worth, not all. */
+    private val historyWindow = 20
 
     val allConfigs: Flow<List<ExerciseConfigEntity>> = dao.observeAllConfigs()
 
@@ -67,7 +82,74 @@ class TrainingRepository(private val dao: TrainingDao) {
     fun sessionsBetween(from: LocalDate, to: LocalDate): Flow<List<SessionEntity>> =
         dao.observeSessionsBetween(from, to)
 
-    suspend fun activeStrengthConfigs(): List<ExerciseConfigEntity> = dao.getActiveConfigs()
+    /**
+     * The exercises this session will run. The stored slot list is never edited by any of the
+     * overrides — cutting phase, Big Three and no-equipment nights are all applied here, when
+     * the session is generated, so switching any of them back costs nothing.
+     */
+    suspend fun exercisesFor(kind: SessionKind, bigThreeOnly: Boolean): List<ExerciseConfigEntity> =
+        SessionPlanner.exercisesFor(
+            kind = kind,
+            configs = dao.getActiveConfigs(),
+            bigThreeOnly = bigThreeOnly,
+            lastCuttingUpperSlot = if (kind == SessionKind.CUTTING) lastCuttingUpperSlot() else null
+        )
+
+    /**
+     * Which upper-body slot the last cutting session actually trained, read back out of its
+     * logs. Stored nowhere: a counter would drift the moment a session was abandoned part-way,
+     * and then the alternation would be out of step with the training it describes.
+     */
+    private suspend fun lastCuttingUpperSlot(): String? {
+        val slotOf = dao.getActiveConfigs().associate { it.exerciseName to it.slotName }
+        return dao.getRecentExerciseNamesOfKind(SessionKind.CUTTING, historyWindow)
+            .asSequence()
+            .mapNotNull { slotOf[it] }
+            .firstOrNull { it in Slots.CUTTING_UPPER }
+    }
+
+    fun observeFrequency(): Flow<FrequencySettingEntity?> = dao.observeFrequency()
+
+    suspend fun setCuttingPhase(active: Boolean) {
+        dao.upsertFrequency(frequency().copy(cuttingPhaseActive = active))
+    }
+
+    /**
+     * The handle position to open a bodyweight exercise at: the next rung only once the
+     * current one has cleared the ceiling often enough to justify a jump that coarse.
+     */
+    suspend fun openingPositionFor(config: ExerciseConfigEntity): String? {
+        if (!config.isBodyweight) return dao.getLastLogFor(config.exerciseName)?.position
+        val recent = dao.getRecentLogsFor(config.exerciseName, historyWindow)
+        val last = recent.firstOrNull() ?: return BoardPosition.WIDE.label
+        return SessionPlanner.openingPositionFor(
+            lastPosition = last.position,
+            clearancesAtThisPosition = StickingPointRules.clearancesAtPosition(recent, last.position)
+        )
+    }
+
+    /**
+     * The exercise that has plateaued twice or more in a row, if there is one. Null is the
+     * normal answer, and the techniques are only ever offered on a non-null one.
+     */
+    suspend fun stickingPoint(): StickingPoint? =
+        StickingPointRules.stickingPoint(dao.getRecentCompletedSessions(historyWindow))
+
+    suspend fun logStickingPointTechnique(
+        sessionId: Long?,
+        date: LocalDate,
+        exerciseName: String,
+        technique: StickingPointTechnique,
+        notes: String? = null
+    ): Long = stickingPointDao.insert(
+        StickingPointLogEntity(
+            sessionId = sessionId,
+            date = date,
+            exerciseName = exerciseName,
+            technique = technique,
+            notes = notes
+        )
+    )
 
     suspend fun config(id: Long): ExerciseConfigEntity? = dao.getConfig(id)
 
@@ -92,9 +174,11 @@ class TrainingRepository(private val dao: TrainingDao) {
      * the first session of a run is what begins it, so the user never has to declare a block
      * before training.
      */
-    suspend fun startSession(date: LocalDate): Long {
+    suspend fun startSession(date: LocalDate, kind: SessionKind = SessionKind.STANDARD): Long {
         val run = currentRun(date)
-        return dao.insertSession(SessionEntity(date = date, runId = run.id, completed = false))
+        return dao.insertSession(
+            SessionEntity(date = date, runId = run.id, completed = false, kind = kind)
+        )
     }
 
     suspend fun logExercise(log: ExerciseLogEntity): Long = dao.insertExerciseLog(log)

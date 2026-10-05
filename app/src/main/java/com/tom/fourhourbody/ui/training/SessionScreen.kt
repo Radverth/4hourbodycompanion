@@ -16,10 +16,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -29,7 +33,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tom.fourhourbody.data.entity.SessionKind
+import com.tom.fourhourbody.data.entity.StickingPointTechnique
 import com.tom.fourhourbody.domain.run.RunSummary
+import com.tom.fourhourbody.domain.training.StickingPoint
 import com.tom.fourhourbody.domain.training.TrainingConstants
 import com.tom.fourhourbody.ui.common.CheckRow
 import com.tom.fourhourbody.ui.common.KeepScreenOn
@@ -46,11 +53,20 @@ import com.tom.fourhourbody.util.kgDisplay
  * failure timed on a stopwatch, with a brisk timed transition between.
  */
 @Composable
-fun SessionScreen(onExit: () -> Unit) {
+fun SessionScreen(
+    onExit: () -> Unit,
+    requestedKind: SessionKind = SessionKind.STANDARD
+) {
     val container = rememberContainer()
     val viewModel: SessionViewModel = viewModel(factory = SessionViewModel.factory(container))
     val stage by viewModel.stage.collectAsStateWithLifecycle()
     val prompt by viewModel.prompt.collectAsStateWithLifecycle()
+    val kind by viewModel.kind.collectAsStateWithLifecycle()
+    val stickingPoint by viewModel.stickingPoint.collectAsStateWithLifecycle()
+
+    // The session row is written on start, so starting is a side effect of arriving here and
+    // has to happen exactly once rather than on every recomposition.
+    LaunchedEffect(requestedKind) { viewModel.start(requestedKind) }
 
     KeepScreenOn()
 
@@ -61,6 +77,19 @@ fun SessionScreen(onExit: () -> Unit) {
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        if (kind != SessionKind.STANDARD && stage !is SessionStage.Summary) {
+            Text(
+                when (kind) {
+                    SessionKind.CUTTING -> "CUTTING PHASE · FEWER SETS ON PURPOSE"
+                    SessionKind.NO_EQUIPMENT -> "NO EQUIPMENT · BOARD AND BODYWEIGHT"
+                    SessionKind.STANDARD -> ""
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = Palette.Ember
+            )
+            Spacer(Modifier.height(10.dp))
+        }
+
         when (val current = stage) {
             SessionStage.Loading -> Text("Preparing session…")
 
@@ -75,8 +104,8 @@ fun SessionScreen(onExit: () -> Unit) {
                 } else {
                     StrengthStage(
                         prompt = currentPrompt,
-                        onLog = { weight, tulSec ->
-                            viewModel.logExercise(current.index, weight, tulSec)
+                        onLog = { weight, position, tulSec ->
+                            viewModel.logExercise(current.index, weight, position, tulSec)
                         }
                     )
                 }
@@ -107,6 +136,8 @@ fun SessionScreen(onExit: () -> Unit) {
 
             is SessionStage.Summary -> SummaryStage(
                 stage = current,
+                stickingPoint = stickingPoint,
+                onTechniqueLogged = viewModel::logStickingPointTechnique,
                 onDone = onExit
             )
         }
@@ -145,9 +176,12 @@ private fun FirstSetCueStage(onContinue: (Boolean) -> Unit) {
 }
 
 @Composable
-private fun StrengthStage(prompt: ExercisePrompt, onLog: (Double, Int) -> Unit) {
+private fun StrengthStage(prompt: ExercisePrompt, onLog: (Double, String?, Int) -> Unit) {
     var weightText by remember(prompt.config.id) {
         mutableStateOf(prompt.suggestedWeightKg?.let { "%.1f".format(it) } ?: "")
+    }
+    var positionText by remember(prompt.config.id) {
+        mutableStateOf(prompt.suggestedPosition ?: "")
     }
 
     Text(
@@ -161,23 +195,35 @@ private fun StrengthStage(prompt: ExercisePrompt, onLog: (Double, Int) -> Unit) 
         style = MaterialTheme.typography.bodyMedium
     )
 
-    if (prompt.lastWeightKg != null && prompt.lastTulSec != null) {
+    if (prompt.lastTulSec != null) {
+        val load = if (prompt.isBodyweight) {
+            prompt.lastPosition ?: "same position"
+        } else {
+            prompt.lastWeightKg?.kgDisplay() ?: "same weight"
+        }
         Text(
-            "Last time: ${prompt.lastWeightKg.kgDisplay()} for ${prompt.lastTulSec}s",
+            "Last time: $load for ${prompt.lastTulSec}s",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-    if (prompt.suggestedWeightKg != null) {
+    if (!prompt.isBodyweight && prompt.suggestedWeightKg != null) {
         Text(
             "Suggested: ${prompt.suggestedWeightKg.kgDisplay()}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+    if (prompt.isBodyweight && prompt.suggestedPosition != null) {
+        Text(
+            "Suggested position: ${prompt.suggestedPosition}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 
     val entered = weightText.toDoubleOrNull()
-    if (entered != null && prompt.isRecord(entered)) {
+    if (!prompt.isBodyweight && entered != null && prompt.isRecord(entered)) {
         Spacer(Modifier.height(10.dp))
         Row(
             Modifier
@@ -201,18 +247,45 @@ private fun StrengthStage(prompt: ExercisePrompt, onLog: (Double, Int) -> Unit) 
     }
 
     Spacer(Modifier.height(16.dp))
-    NumberField(
-        label = "Weight (kg)",
-        value = weightText,
-        onValueChange = { weightText = it },
-        decimal = true,
+    // Bodyweight work has no plates, so the field that matters is the position. A weight box
+    // on a wall sit would only invite a number that means nothing.
+    if (!prompt.isBodyweight) {
+        NumberField(
+            label = "Weight (kg)",
+            value = weightText,
+            onValueChange = { weightText = it },
+            decimal = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(12.dp))
+    }
+
+    OutlinedTextField(
+        value = positionText,
+        onValueChange = { positionText = it },
+        label = { Text(if (prompt.isBodyweight) "Handle position" else "Seat / pin position") },
+        singleLine = true,
         modifier = Modifier.fillMaxWidth()
+    )
+    Spacer(Modifier.height(6.dp))
+    Text(
+        TrainingConstants.POSITION_CUE,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 
     Spacer(Modifier.height(16.dp))
-    val weight = weightText.toDoubleOrNull()
+    val weight = if (prompt.isBodyweight) 0.0 else weightText.toDoubleOrNull()
     if (weight != null) {
-        WorkingSetTimer(onFailure = { tulSec -> onLog(weight, tulSec) })
+        // Keyed on the exercise so the stopwatch cannot carry a previous set's seconds into
+        // this one if the rest stage between them is ever skipped.
+        key(prompt.config.id) {
+            WorkingSetTimer(
+                onFailure = { tulSec ->
+                    onLog(weight, positionText.takeIf { it.isNotBlank() }, tulSec)
+                }
+            )
+        }
     } else {
         Text(
             "Enter a weight to start the set.",
@@ -228,13 +301,26 @@ private fun StrengthStage(prompt: ExercisePrompt, onLog: (Double, Int) -> Unit) 
  * whose plateau closed the run ends on everything the whole run banked.
  */
 @Composable
-private fun SummaryStage(stage: SessionStage.Summary, onDone: () -> Unit) {
+private fun SummaryStage(
+    stage: SessionStage.Summary,
+    stickingPoint: StickingPoint?,
+    onTechniqueLogged: (String, StickingPointTechnique) -> Unit,
+    onDone: () -> Unit
+) {
     val finished = stage.run.completed
 
     if (finished != null) {
         RunCompleteStage(summary = finished, restDaysNow = stage.restDaysNow)
     } else {
         SessionLoggedStage(stage = stage)
+    }
+
+    stickingPoint?.let { stuck ->
+        Spacer(Modifier.height(16.dp))
+        StickingPointOffer(
+            stickingPoint = stuck,
+            onTechniqueLogged = { onTechniqueLogged(stuck.exerciseName, it) }
+        )
     }
 
     Spacer(Modifier.height(24.dp))
@@ -409,5 +495,68 @@ private fun SurfacePanel(label: String, content: @Composable ColumnScope.() -> U
         Text(label, style = MaterialTheme.typography.labelSmall, color = Palette.TextTertiary)
         Spacer(Modifier.height(12.dp))
         content()
+    }
+}
+
+/**
+ * The book's sticking-point techniques, offered once an exercise has plateaued twice running.
+ *
+ * Shared between the session summary and the training screen so the two cannot describe the
+ * techniques differently. Nothing here is recommended and nothing is required: the book is
+ * explicit that leaning on these costs more recovery than the plateau they break, so the app
+ * states the options, records which one was used if any, and changes nothing else.
+ */
+@Composable
+internal fun StickingPointOffer(
+    stickingPoint: StickingPoint,
+    onTechniqueLogged: (StickingPointTechnique) -> Unit
+) {
+    var logged by remember { mutableStateOf<StickingPointTechnique?>(null) }
+
+    SurfacePanel(label = "STICKING POINT") {
+        Text(
+            "${stickingPoint.exerciseName} has plateaued " +
+                "${stickingPoint.consecutivePlateaus} sessions running, so the extra rest " +
+                "hasn't resolved it on its own.",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "These are for exactly this and nothing else. Used routinely they cost more " +
+                "recovery than the plateau they're meant to break, which is why none of " +
+                "them is suggested and logging one is optional.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Palette.TextSecondary
+        )
+        Spacer(Modifier.height(14.dp))
+        StickingPointTechnique.entries.forEach { technique ->
+            Column(Modifier.fillMaxWidth().padding(vertical = 7.dp)) {
+                Text(technique.label, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    technique.detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.TextSecondary
+                )
+                Spacer(Modifier.height(6.dp))
+                OutlinedButton(
+                    onClick = {
+                        logged = technique
+                        onTechniqueLogged(technique)
+                    },
+                    enabled = logged != technique
+                ) {
+                    Text(if (logged == technique) "Logged" else "I used this")
+                }
+            }
+        }
+        if (logged != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Logged. Nothing in the protocol changes because of it — the record exists " +
+                    "so repeated use is at least visible.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Palette.TextSecondary
+            )
+        }
     }
 }

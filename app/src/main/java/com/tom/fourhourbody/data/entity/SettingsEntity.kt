@@ -1,5 +1,6 @@
 package com.tom.fourhourbody.data.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.time.DayOfWeek
@@ -24,5 +25,13 @@ data class SettingsEntity(
     val trainingIntention: String? = null,
 
     /** One-time cue about breathing and the inroading mindset; dismissible, hence persisted. */
-    val firstSetCueDismissed: Boolean = false
+    val firstSetCueDismissed: Boolean = false,
+
+    /**
+     * Big Three instead of Big Five: leg press, pulldown and chest press, dropping the row
+     * and the overhead press. Applied when a session is generated, so the slot list itself is
+     * untouched and turning this off restores all five without reconstructing anything.
+     */
+    @ColumnInfo(defaultValue = "0")
+    val bigThreeOnly: Boolean = false
 )

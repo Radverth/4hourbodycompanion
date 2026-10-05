@@ -34,6 +34,19 @@ object TrainingConstants {
     const val INITIAL_REST_DAYS = 6
 
     /**
+     * The one piece of record-keeping the book singles out as easy to skip and expensive to
+     * lose: a seat an inch or two off changes the leverage, and with it the time you are
+     * comparing against.
+     */
+    const val POSITION_CUE =
+        "Log the seat, pin or handle setting. A 1–2 inch difference changes the leverage " +
+            "enough to move your time on its own, which makes the comparison with last " +
+            "session worthless."
+
+    const val EQUIPMENT_BOARD = "Board"
+    const val EQUIPMENT_BODYWEIGHT = "Bodyweight"
+
+    /**
      * Shown once before the first set of a session, dismissible. Covers the two things the
      * book asks for that a lifter would not otherwise know to do: breathe rather than hold the
      * breath, and keep pushing rather than bail the instant the weight stops moving.

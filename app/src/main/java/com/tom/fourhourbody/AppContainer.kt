@@ -20,7 +20,7 @@ class AppContainer(private val appContext: Context) {
     val database: AppDatabase by lazy { AppDatabase.get(appContext) }
 
     val settingsRepository by lazy { SettingsRepository(database.settingsDao()) }
-    val trainingRepository by lazy { TrainingRepository(database.trainingDao()) }
+    val trainingRepository by lazy { TrainingRepository(database.trainingDao(), database.stickingPointDao()) }
     val measurementRepository by lazy { MeasurementRepository(database.measurementDao()) }
 
     val progressRepository by lazy { ProgressRepository(trainingRepository) }

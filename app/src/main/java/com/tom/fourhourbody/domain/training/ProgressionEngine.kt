@@ -15,20 +15,38 @@ data class ExerciseResult(
     val weightKg: Double,
     val tulSec: Int,
     val previousWeightKg: Double? = null,
-    val previousTulSec: Int? = null
+    val previousTulSec: Int? = null,
+    /**
+     * Seat, pin or handle setting. Part of the resistance rather than a note about it: the
+     * book warns that an inch or two of seat difference changes the leverage, and on the
+     * push-up board the handle position is the only thing that *can* change.
+     */
+    val position: String? = null,
+    val previousPosition: String? = null
 ) {
-    /** The set ran past the book's 90-second ceiling — next time earns more weight. */
+    /** The set ran past the book's 90-second ceiling — next time earns more resistance. */
     val hitCeiling: Boolean get() = tulSec >= TrainingConstants.TUL_CEILING_SEC
 
+    private fun normalise(value: String?): String? = value?.trim()?.takeIf { it.isNotEmpty() }
+
+    /** True when this set was performed at no more resistance than the one it is compared to. */
+    private val notHarderThanBefore: Boolean
+        get() {
+            if (previousWeightKg == null) return false
+            if (weightKg > previousWeightKg) return false
+            // A moved position is a different exercise as far as leverage is concerned, so the
+            // two sets are not comparable and neither counts as easier than the other.
+            return normalise(position) == normalise(previousPosition)
+        }
+
     /**
-     * No better than last time, at no more weight than last time. The book's progression rule
-     * is "matching or bettering your time under load at an increasing resistance"; this is
-     * that rule's negation — the signal that it is time to insert another rest day rather than
-     * push the same gap harder.
+     * No better than last time, at no more resistance than last time. The book's progression
+     * rule is "matching or bettering your time under load at an increasing resistance"; this
+     * is that rule's negation — the signal that it is time to insert another rest day rather
+     * than push the same gap harder.
      */
     val isPlateau: Boolean get() =
-        previousWeightKg != null && previousTulSec != null &&
-            weightKg <= previousWeightKg && tulSec < previousTulSec
+        previousTulSec != null && notHarderThanBefore && tulSec < previousTulSec
 }
 
 /** What the rules concluded about a finished session. */
