@@ -2,6 +2,8 @@ package com.tom.fourhourbody.data.db
 
 import androidx.room.TypeConverter
 import com.tom.fourhourbody.data.entity.RunEnd
+import com.tom.fourhourbody.data.entity.SessionKind
+import com.tom.fourhourbody.data.entity.StickingPointTechnique
 import java.time.DayOfWeek
 import java.time.LocalDate
 
@@ -24,4 +26,17 @@ class Converters {
 
     @TypeConverter
     fun stringToRunEnd(value: String?): RunEnd? = value?.let(RunEnd::valueOf)
+
+    @TypeConverter
+    fun sessionKindToString(value: SessionKind?): String? = value?.name
+
+    @TypeConverter
+    fun stringToSessionKind(value: String?): SessionKind? = value?.let(SessionKind::valueOf)
+
+    @TypeConverter
+    fun techniqueToString(value: StickingPointTechnique?): String? = value?.name
+
+    @TypeConverter
+    fun stringToTechnique(value: String?): StickingPointTechnique? =
+        value?.let(StickingPointTechnique::valueOf)
 }

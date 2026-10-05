@@ -89,4 +89,76 @@ class ProgressionEngineTest {
         assertEquals(100.0, ProgressionEngine.openingWeightFor(100.0, 60)!!, 0.001)
         assertNull(ProgressionEngine.openingWeightFor(null, null))
     }
+
+    // ---- position as part of the resistance ----
+
+    @Test
+    fun `a worse time at a harder board position is not a plateau`() {
+        // The condition the whole no-equipment night rests on. On the board there is no
+        // weight, so `weightKg <= previousWeightKg` is always true — without position in the
+        // comparison, every advance up the handle ladder would be read as a plateau and
+        // would hand out a rest day for progressing.
+        val advanced = ExerciseResult(
+            "Wide-grip push-up",
+            weightKg = 0.0,
+            tulSec = 64,
+            previousWeightKg = 0.0,
+            previousTulSec = 95,
+            position = "Standard",
+            previousPosition = "Wide"
+        )
+        assertFalse(advanced.isPlateau)
+    }
+
+    @Test
+    fun `a worse time at the same board position is a plateau`() {
+        val stuck = ExerciseResult(
+            "Wide-grip push-up",
+            weightKg = 0.0,
+            tulSec = 58,
+            previousWeightKg = 0.0,
+            previousTulSec = 72,
+            position = "Wide",
+            previousPosition = "Wide"
+        )
+        assertTrue(stuck.isPlateau)
+    }
+
+    @Test
+    fun `a worse time after moving the machine seat is not a plateau`() {
+        // The book warns an inch or two of seat difference changes the leverage, so two sets
+        // at different settings are not comparable even at identical weight.
+        val movedSeat = ExerciseResult(
+            "Chest press",
+            weightKg = 40.0,
+            tulSec = 55,
+            previousWeightKg = 40.0,
+            previousTulSec = 70,
+            position = "4",
+            previousPosition = "3"
+        )
+        assertFalse(movedSeat.isPlateau)
+    }
+
+    @Test
+    fun `blank and absent positions are treated as the same position`() {
+        // One set logged before the field existed and one logged with it left empty describe
+        // the same thing, and should still compare.
+        val result = ExerciseResult(
+            "Leg press",
+            weightKg = 100.0,
+            tulSec = 60,
+            previousWeightKg = 100.0,
+            previousTulSec = 80,
+            position = "   ",
+            previousPosition = null
+        )
+        assertTrue(result.isPlateau)
+    }
+
+    @Test
+    fun `a first attempt at an exercise cannot plateau`() {
+        val first = ExerciseResult("Pulldown", weightKg = 30.0, tulSec = 40)
+        assertFalse(first.isPlateau)
+    }
 }

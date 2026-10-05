@@ -11,6 +11,7 @@ import com.tom.fourhourbody.data.entity.ExerciseLogEntity
 import com.tom.fourhourbody.data.entity.FrequencySettingEntity
 import com.tom.fourhourbody.data.entity.RunEntity
 import com.tom.fourhourbody.data.entity.SessionEntity
+import com.tom.fourhourbody.data.entity.SessionKind
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
@@ -82,6 +83,41 @@ interface TrainingDao {
     @Insert
     suspend fun insertExerciseLog(log: ExerciseLogEntity): Long
 
+    /**
+     * Recent sets for one exercise, newest first. Read rather than aggregated because the
+     * question asked of them — how many sessions in a row at this exact board position
+     * cleared the ceiling — depends on each row's position, which SQL would need a window
+     * function to carry.
+     */
+    @Query(
+        """
+        SELECT el.* FROM exercise_logs el
+        INNER JOIN sessions s ON s.id = el.sessionId
+        WHERE el.exerciseName = :exerciseName AND s.completed = 1
+        ORDER BY s.date DESC, el.id DESC LIMIT :limit
+        """
+    )
+    suspend fun getRecentLogsFor(exerciseName: String, limit: Int): List<ExerciseLogEntity>
+
+    /** Recent completed sessions, newest first — what the sticking-point rules count over. */
+    @Query("SELECT * FROM sessions WHERE completed = 1 ORDER BY date DESC, id DESC LIMIT :limit")
+    suspend fun getRecentCompletedSessions(limit: Int): List<SessionEntity>
+
+    /**
+     * Exercise names from completed sessions of one kind, newest first. Used to read the
+     * cutting phase's alternation back out of what was trained, rather than storing a counter
+     * that could fall out of step with it.
+     */
+    @Query(
+        """
+        SELECT el.exerciseName FROM exercise_logs el
+        INNER JOIN sessions s ON s.id = el.sessionId
+        WHERE s.completed = 1 AND s.kind = :kind
+        ORDER BY s.date DESC, el.id DESC LIMIT :limit
+        """
+    )
+    suspend fun getRecentExerciseNamesOfKind(kind: SessionKind, limit: Int): List<String>
+
     /** Most recent logged set for an exercise — the input to the next weight suggestion. */
     @Query(
         """
@@ -131,6 +167,9 @@ interface TrainingDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertConfigs(configs: List<ExerciseConfigEntity>)
+
+    @Query("SELECT * FROM exercise_configs ORDER BY orderIndex ASC, id ASC")
+    suspend fun getAllConfigs(): List<ExerciseConfigEntity>
 
     @Query("SELECT COUNT(*) FROM exercise_configs")
     suspend fun countConfigs(): Int

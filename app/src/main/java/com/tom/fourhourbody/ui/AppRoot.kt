@@ -19,11 +19,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.tom.fourhourbody.data.entity.SessionKind
 import com.tom.fourhourbody.ui.dashboard.DashboardScreen
 import com.tom.fourhourbody.ui.deck.DeckScreen
 import com.tom.fourhourbody.ui.more.MoreScreen
@@ -99,14 +102,29 @@ fun AppRoot(pendingRoute: String?, onRouteConsumed: () -> Unit) {
 
             composable(Routes.TRAINING) {
                 TrainingHomeScreen(
-                    onStartSession = { navController.navigate(Routes.SESSION) },
+                    onStartSession = { kind -> navController.navigate(Routes.session(kind.name)) },
                     onOpenHistory = { navController.navigate(Routes.SESSION_HISTORY) },
                     onOpenExercises = { navController.navigate(Routes.EXERCISE_CONFIG) },
                     onOpenDeck = { navController.navigate(Routes.DECK) }
                 )
             }
-            composable(Routes.SESSION) {
-                SessionScreen(onExit = { navController.popBackStack() })
+            composable(
+                route = "${Routes.SESSION}?kind={kind}",
+                arguments = listOf(
+                    navArgument("kind") {
+                        type = NavType.StringType
+                        defaultValue = SessionKind.STANDARD.name
+                    }
+                )
+            ) { entry ->
+                val requested = entry.arguments?.getString("kind")
+                SessionScreen(
+                    onExit = { navController.popBackStack() },
+                    // An unrecognised argument falls back to a standard session rather than
+                    // throwing: a stale deep link is not worth a crash.
+                    requestedKind = SessionKind.entries
+                        .firstOrNull { it.name == requested } ?: SessionKind.STANDARD
+                )
             }
             composable(Routes.SESSION_HISTORY) {
                 SessionHistoryScreen(onBack = { navController.popBackStack() })

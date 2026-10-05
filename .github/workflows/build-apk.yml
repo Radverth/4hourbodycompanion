@@ -49,6 +49,28 @@ jobs:
       - name: Run unit tests
         run: ./gradlew --no-daemon testDebugUnitTest
 
+      # Room's own migration test needs a device, which this workflow does not have. This
+      # runs the new migration's SQL against real SQLite and compares the result with the
+      # schema Room expects, which catches the failure mode that matters: a migration that
+      # compiles, ships, and then crashes on launch against an existing database.
+      #
+      # It runs after the tests on purpose — KSP has exported the new schema by then, so both
+      # sides of the comparison come from Room itself rather than from parsing Kotlin.
+      - name: Check the newest Room migration
+        run: python3 tools/check_migration.py
+
+      # The repo commits its exported schemas, and they can only be produced by KSP. This
+      # makes the newly generated one downloadable so it can be committed, since whoever
+      # wrote the migration may not have an Android toolchain to generate it with.
+      - name: Upload exported Room schemas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: room-schemas-${{ github.run_number }}
+          path: app/schemas/
+          if-no-files-found: warn
+          retention-days: 30
+
       - name: Assemble debug APK
         run: ./gradlew --no-daemon assembleDebug
         env:

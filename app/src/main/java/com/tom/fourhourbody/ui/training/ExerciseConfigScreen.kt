@@ -41,9 +41,19 @@ fun ExerciseConfigScreen(onBack: () -> Unit) {
         ) {
             item {
                 Text(
-                    "Five slots, one set each, to positive failure. Add or remove a slot to " +
-                        "run the Big Three instead of the Big Five, or swap in a free-weight " +
-                        "equivalent.",
+                    "One set each, to positive failure. Swap in a free-weight equivalent " +
+                        "here, or rename a slot — but to run the Big Three, or to cut volume " +
+                        "for a deficit, use the switches on the Training screen instead: " +
+                        "those leave this list alone, so turning them back off costs nothing.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "The board and bodyweight rows are the same slots again for a night " +
+                        "without machines. They are picked by equipment when you start a " +
+                        "no-equipment session, so they never show up in a normal one and " +
+                        "need no toggling.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
