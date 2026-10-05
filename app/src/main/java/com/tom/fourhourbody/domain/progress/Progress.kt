@@ -18,6 +18,13 @@ enum class Track(val label: String) {
     RUNS("Runs"),
     BANKED("Weight banked"),
     LIFT("One lift"),
+    /**
+     * Total minutes under load. This track exists because the protocol's own currency is
+     * seconds, not kilos — and because a board-and-bodyweight trainee can move every other
+     * number here except [BANKED], so a sheet without it would tell them they had done
+     * nothing.
+     */
+    TUL("Time under load"),
     DIET("Diet chain")
 }
 
@@ -27,13 +34,18 @@ data class Stats(
     val runsCompleted: Int = 0,
     val totalBankedKg: Double = 0.0,
     val bestGainOnOneLiftKg: Double = 0.0,
+    val totalTulSeconds: Int = 0,
     val bestDietChain: Int = 0
 ) {
+    /** Minutes, because a milestone at 108,000 seconds means nothing to read. */
+    val totalTulMinutes: Int get() = totalTulSeconds / 60
+
     fun current(track: Track): Int = when (track) {
         Track.SESSIONS -> sessionsCompleted
         Track.RUNS -> runsCompleted
         Track.BANKED -> totalBankedKg.toInt()
         Track.LIFT -> bestGainOnOneLiftKg.toInt()
+        Track.TUL -> totalTulMinutes
         Track.DIET -> bestDietChain
     }
 }
@@ -119,6 +131,20 @@ object Milestones {
         ),
 
         Milestone(
+            "tul_30", Track.TUL, 30, "Half an hour under load",
+            "Thirty minutes of actual working time, accumulated a minute and a half at a time."
+        ),
+        Milestone(
+            "tul_120", Track.TUL, 120, "Two hours under load",
+            "The whole protocol's working time so far would fit in one afternoon. That is " +
+                "the point of it."
+        ),
+        Milestone(
+            "tul_300", Track.TUL, 300, "Five hours under load",
+            "Years of training compressed into five hours of effort that counted."
+        ),
+
+        Milestone(
             "diet_7", Track.DIET, 7, "Seven days on plan",
             "One full week including the days it was inconvenient."
         ),
@@ -181,7 +207,7 @@ object Attributes {
         stretchDays: Int
     ): List<Attribute> = listOf(
         Attribute("Strength", stats.totalBankedKg.toInt(), "kg banked, closed runs"),
-        Attribute("Endurance", stats.sessionsCompleted, "sessions completed"),
+        Attribute("Endurance", stats.totalTulMinutes, "minutes under load, all time"),
         Attribute("Discipline", stats.bestDietChain, "longest diet chain"),
         Attribute("Mobility", stretchDays, "days stretched, 30d"),
         Attribute("Recovery", sleepNights, "nights on protocol, 30d"),

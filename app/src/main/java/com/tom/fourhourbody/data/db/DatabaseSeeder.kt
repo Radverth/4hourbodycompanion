@@ -6,6 +6,7 @@ import com.tom.fourhourbody.data.entity.SettingsEntity
 import com.tom.fourhourbody.data.entity.StretchConfigEntity
 import com.tom.fourhourbody.data.entity.StretchMode
 import com.tom.fourhourbody.data.entity.StretchRoutine
+import com.tom.fourhourbody.domain.training.Slots
 import com.tom.fourhourbody.domain.training.TrainingConstants
 
 /**
@@ -30,9 +31,26 @@ object DatabaseSeeder {
         }
     }
 
+    /**
+     * Refilled rather than merged when the slot list is stale.
+     *
+     * The protocol change replaced the exercises themselves, so an install carrying the four
+     * old Occam's slots has nothing worth merging — and a row-by-row merge would leave a
+     * half-and-half list that matches neither book. Checking for the slots the current
+     * protocol expects makes this self-correcting: the migration empties the table, this
+     * refills it, and a future protocol change only has to change [DEFAULT_EXERCISES].
+     *
+     * Dropping config rows is not dropping history. The logs are keyed by exercise name and
+     * live in their own table, untouched.
+     */
     private suspend fun seedExercises(db: AppDatabase) {
-        if (db.trainingDao().countConfigs() > 0) return
-        db.trainingDao().insertConfigs(DEFAULT_EXERCISES)
+        val existing = db.trainingDao().getActiveConfigs()
+        val expectedSlots = DEFAULT_EXERCISES.map { it.slotName }.toSet()
+        val stale = existing.isNotEmpty() && existing.none { it.slotName in expectedSlots }
+        if (stale) db.trainingDao().deleteAllConfigs()
+        if (stale || db.trainingDao().countConfigs() == 0) {
+            db.trainingDao().insertConfigs(DEFAULT_EXERCISES)
+        }
     }
 
     private suspend fun seedStretches(db: AppDatabase) {
@@ -41,45 +59,87 @@ object DatabaseSeeder {
     }
 
     /**
-     * Leg press carries the book's 10+ rep target; everything else is 7+.
-     * Kettlebell swings are seeded here as the conditioning slot — the session player runs
-     * them through the Tabata block rather than the 5/5 tempo loop.
+     * The Big Five in the book's fixed order — row, chest press, pulldown, overhead press,
+     * leg press — each with the free-weight exercise that stands in for it when there is no
+     * machine, and the 60–90 second window it is aiming for.
+     *
+     * The pulldown has no free-weight equivalent on purpose. There isn't an honest one: a
+     * pull-up is not a scalable substitute at arbitrary load, and naming something here that
+     * trains a different movement would quietly corrupt the comparison with last session,
+     * which is the only thing this protocol decides anything on.
+     *
+     * The board and bodyweight rows below are the same five slots again for a night without
+     * equipment. They are seeded inactive-by-equipment rather than inactive-by-flag: the
+     * session planner picks them by equipment when a no-equipment session is started, so they
+     * never appear in a normal session and never need toggling.
      */
     val DEFAULT_EXERCISES = listOf(
         ExerciseConfigEntity(
-            slotName = "Legs",
-            exerciseName = "Leg press",
+            slotName = Slots.PULL_ROW,
+            exerciseName = "Seated row",
             equipment = "Machine",
-            targetReps = TrainingConstants.LEG_PRESS_TARGET_REPS,
+            freeWeightEquivalent = "Bent-over barbell row",
             orderIndex = 0
         ),
         ExerciseConfigEntity(
-            slotName = "Push",
+            slotName = Slots.PUSH,
             exerciseName = "Chest press",
             equipment = "Machine",
-            targetReps = TrainingConstants.DEFAULT_TARGET_REPS,
+            freeWeightEquivalent = "Bench press",
             orderIndex = 1
         ),
         ExerciseConfigEntity(
-            slotName = "Pull",
-            exerciseName = "Row / pulldown",
+            slotName = Slots.PULL_LAT,
+            exerciseName = "Pulldown",
             equipment = "Machine",
-            targetReps = TrainingConstants.DEFAULT_TARGET_REPS,
+            freeWeightEquivalent = null,
             orderIndex = 2
         ),
         ExerciseConfigEntity(
-            slotName = "Overhead",
-            exerciseName = "Barbell overhead press",
-            equipment = "Barbell",
-            targetReps = TrainingConstants.DEFAULT_TARGET_REPS,
+            slotName = Slots.OVERHEAD,
+            exerciseName = "Overhead press",
+            equipment = "Machine",
+            freeWeightEquivalent = "Standing overhead press",
             orderIndex = 3
         ),
         ExerciseConfigEntity(
-            slotName = "Conditioning",
-            exerciseName = "Kettlebell swings",
-            equipment = TrainingConstants.KETTLEBELL_EQUIPMENT,
-            targetReps = 0,
+            slotName = Slots.LEGS,
+            exerciseName = "Leg press",
+            equipment = "Machine",
+            freeWeightEquivalent = "Squat or deadlift",
             orderIndex = 4
+        ),
+
+        // ---- no-equipment night: push-up board and bodyweight ----
+        ExerciseConfigEntity(
+            slotName = Slots.PULL_ROW,
+            exerciseName = "Board row",
+            equipment = TrainingConstants.EQUIPMENT_BOARD,
+            orderIndex = 10
+        ),
+        ExerciseConfigEntity(
+            slotName = Slots.PUSH,
+            exerciseName = "Wide-grip push-up",
+            equipment = TrainingConstants.EQUIPMENT_BOARD,
+            orderIndex = 11
+        ),
+        ExerciseConfigEntity(
+            slotName = Slots.PULL_LAT,
+            exerciseName = "Board row (second handle position)",
+            equipment = TrainingConstants.EQUIPMENT_BOARD,
+            orderIndex = 12
+        ),
+        ExerciseConfigEntity(
+            slotName = Slots.OVERHEAD,
+            exerciseName = "Pike push-up",
+            equipment = TrainingConstants.EQUIPMENT_BOARD,
+            orderIndex = 13
+        ),
+        ExerciseConfigEntity(
+            slotName = Slots.LEGS,
+            exerciseName = "Wall sit",
+            equipment = TrainingConstants.EQUIPMENT_BODYWEIGHT,
+            orderIndex = 14
         )
     )
 
@@ -92,8 +152,8 @@ object DatabaseSeeder {
             defaultHoldSec = 30,
             defaultSide = "Non-dominant,Dominant",
             orderIndex = 0,
-            notes = "Static exception — 30s–2 min before kettlebell swings, to put the hip " +
-                "flexors to sleep. Non-dominant side first."
+            notes = "Static exception — 30s per side before any explosive or jump-type " +
+                "work, to put the hip flexors to sleep. Non-dominant side first."
         ),
         StretchConfigEntity(
             stretchName = "Double-leg glute bridge",

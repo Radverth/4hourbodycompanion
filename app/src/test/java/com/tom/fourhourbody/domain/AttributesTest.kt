@@ -13,6 +13,8 @@ class AttributesTest {
         runsCompleted = 2,
         totalBankedKg = 46.0,
         bestGainOnOneLiftKg = 34.0,
+        // 14 sessions at roughly five sets of 75s each.
+        totalTulSeconds = 5_250,
         bestDietChain = 11
     )
 
@@ -20,7 +22,9 @@ class AttributesTest {
     fun `every pillar gets an attribute, each a count already in the log`() {
         val attrs = Attributes.of(stats, sleepNights = 18, coldSessions = 6, stretchDays = 21)
         assertEquals(
-            listOf(46, 14, 11, 21, 18, 6),
+            // Endurance is minutes under load, which is the protocol's own measure — a
+            // session count would say the same thing about a 40-second set and a 90-second one.
+            listOf(46, 87, 11, 21, 18, 6),
             attrs.map { it.value }
         )
     }

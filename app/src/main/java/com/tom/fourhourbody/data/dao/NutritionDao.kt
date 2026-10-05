@@ -5,8 +5,9 @@ import androidx.room.Query
 import androidx.room.Upsert
 import com.tom.fourhourbody.data.entity.DamageControlLogEntity
 import com.tom.fourhourbody.data.entity.DietDayLogEntity
-import kotlinx.coroutines.flow.Flow
+import com.tom.fourhourbody.data.entity.SynergizeLogEntity
 import java.time.LocalDate
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Damage-control measures with the date of the day they belong to. The rows themselves are
@@ -73,4 +74,18 @@ interface NutritionDao {
         """
     )
     fun observeDamageControlBetween(from: LocalDate, to: LocalDate): Flow<List<DamageControlOnDate>>
+
+    // ---- Synergize: the fat-loss checklist, one row per day ----
+
+    @Upsert
+    suspend fun upsertSynergize(log: SynergizeLogEntity): Long
+
+    @Query("SELECT * FROM synergize_logs WHERE date = :date")
+    suspend fun getSynergize(date: LocalDate): SynergizeLogEntity?
+
+    @Query("SELECT * FROM synergize_logs WHERE date = :date")
+    fun observeSynergize(date: LocalDate): Flow<SynergizeLogEntity?>
+
+    @Query("SELECT * FROM synergize_logs WHERE date BETWEEN :from AND :to ORDER BY date DESC")
+    fun observeSynergizeBetween(from: LocalDate, to: LocalDate): Flow<List<SynergizeLogEntity>>
 }

@@ -19,6 +19,12 @@ data class SleepLogEntity(
     val wineWithinLimit: Boolean = false,
     val coldExposureBeforeBed: Boolean = false,
     val consistentWakeTime: Boolean = false,
+    /**
+     * Hours actually slept. The recovery chapter wants the number, not just a quality tick —
+     * a night you rated 4 out of 5 and slept five hours of is not a good night, and only one
+     * of those two figures would have told you.
+     */
+    val hoursSlept: Double? = null,
     val qualityRating: Int? = null
 )
 
@@ -27,7 +33,8 @@ data class ColdExposureLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val date: LocalDate,
     val type: ColdExposureType,
-    val durationSec: Int,
+    /** Null for the cold-water-drink type, which has no duration to record. */
+    val durationSec: Int? = null,
     val notes: String? = null
 )
 

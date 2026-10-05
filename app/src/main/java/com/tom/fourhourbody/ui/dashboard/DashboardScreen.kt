@@ -43,7 +43,6 @@ import com.tom.fourhourbody.ui.theme.Palette
 import com.tom.fourhourbody.ui.theme.RunicLabel
 import com.tom.fourhourbody.util.asTimeOfDay
 import com.tom.fourhourbody.util.displayLong
-import com.tom.fourhourbody.util.kgDisplay
 
 /**
  * Today, and one question: what now.
@@ -133,10 +132,13 @@ private fun Hero(
 
     when (focus) {
         Focus.TRAIN -> HeroCard(
-            kicker = if (onShift) "SESSION DUE — AFTER WORK" else "SESSION DUE",
+            kicker = buildString {
+                append(if (onShift) "SESSION DUE — AFTER WORK" else "SESSION DUE")
+                if (state.training.cuttingPhaseActive) append(" · CUTTING")
+            },
             headline = intention(onShift, shiftEnd, motivation?.trainingIntention),
             body = nextWeights.take(2).joinToString(", ") {
-                "${it.exerciseName.lowercase()} ${it.weightKg.kgDisplay()}"
+                "${it.exerciseName.lowercase()} ${it.loadDisplay()}"
             }.takeIf { it.isNotBlank() }?.let { "Waiting for you: $it." },
             action = "Start session",
             onAction = { onOpenPillar(Routes.SESSION) },
@@ -271,9 +273,10 @@ private fun ClearCard(
                 daysUntil != null && daysUntil > 0 && nextWeights.isNotEmpty() -> {
                     val lead = nextWeights.first()
                     "Next session in $daysUntil days — ${lead.exerciseName.lowercase()} " +
-                        "${lead.weightKg.kgDisplay()} is waiting."
+                        "${lead.loadDisplay()} is waiting.${gapNote(state)}"
                 }
-                daysUntil != null && daysUntil > 0 -> "Next session in $daysUntil days."
+                daysUntil != null && daysUntil > 0 ->
+                    "Next session in $daysUntil days.${gapNote(state)}"
                 motivation != null && motivation.cheatDayIn > 0 ->
                     "${motivation.cheatDayName} in ${motivation.cheatDayIn} days."
                 else -> "Nothing scheduled."
@@ -434,3 +437,19 @@ private fun StandingLine(runStatus: RunStatus?, motivation: MotivationState?, le
         modifier = Modifier.fillMaxWidth()
     )
 }
+
+/**
+ * Said only once the gap is wider than the protocol's starting point, and said as a clause
+ * on an existing line rather than a block of its own.
+ *
+ * The number only ever grows, which without a word of explanation reads like a tracker
+ * reporting decline. The book's position is the opposite: a set taken to failure takes longer
+ * to recover from the stronger you get, and ten to fourteen days between sessions costs
+ * nothing.
+ */
+private fun gapNote(state: DashboardState): String =
+    if (state.training.gapHasWidened) {
+        " The gap is wider than it was — that is the protocol, not a slip."
+    } else {
+        ""
+    }

@@ -44,9 +44,11 @@ fun ExerciseConfigScreen(onBack: () -> Unit) {
         ) {
             item {
                 Text(
-                    "Leg press carries the book's ${TrainingConstants.LEG_PRESS_TARGET_REPS}+ rep " +
-                        "target; everything else is ${TrainingConstants.DEFAULT_TARGET_REPS}+. " +
-                        "Kettlebell swings run as the Tabata block, not as a tempo set.",
+                    "Every exercise aims for the same " +
+                        "${TrainingConstants.TARGET_TUL_MIN_SEC}–" +
+                        "${TrainingConstants.TARGET_TUL_MAX_SEC} second window: clear the top " +
+                        "of it and the load goes up next session. Board and bodyweight rows " +
+                        "only appear in a no-equipment session, so they need no toggling here.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -74,27 +76,50 @@ fun ExerciseConfigScreen(onBack: () -> Unit) {
                             modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = config.equipment,
+                            onValueChange = {
+                                viewModel.updateConfig(config.copy(equipment = it))
+                            },
+                            label = { Text("Equipment") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedTextField(
-                                value = config.equipment,
-                                onValueChange = {
-                                    viewModel.updateConfig(config.copy(equipment = it))
-                                },
-                                label = { Text("Equipment") },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f)
-                            )
                             NumberField(
-                                label = "Target reps",
-                                value = config.targetReps.toString(),
+                                label = "Min s",
+                                value = config.targetTulMinSec.toString(),
                                 onValueChange = { raw ->
                                     raw.toIntOrNull()?.let {
-                                        viewModel.updateConfig(config.copy(targetReps = it))
+                                        viewModel.updateConfig(config.copy(targetTulMinSec = it))
                                     }
                                 },
-                                modifier = Modifier.width(130.dp)
+                                modifier = Modifier.width(90.dp)
+                            )
+                            NumberField(
+                                label = "Max s",
+                                value = config.targetTulMaxSec.toString(),
+                                onValueChange = { raw ->
+                                    raw.toIntOrNull()?.let {
+                                        viewModel.updateConfig(config.copy(targetTulMaxSec = it))
+                                    }
+                                },
+                                modifier = Modifier.width(90.dp)
                             )
                         }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = config.freeWeightEquivalent ?: "",
+                            onValueChange = { raw ->
+                                viewModel.updateConfig(
+                                    config.copy(freeWeightEquivalent = raw.takeIf { it.isNotBlank() })
+                                )
+                            },
+                            label = { Text("Free-weight stand-in") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }

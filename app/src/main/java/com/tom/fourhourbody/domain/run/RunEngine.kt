@@ -7,14 +7,23 @@ import com.tom.fourhourbody.data.entity.SessionEntity
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
-/** What one exercise gained across a run. */
+/**
+ * What one exercise gained across a run, on both axes the protocol moves.
+ *
+ * Load is the headline for anything on a machine. Time under load matters on its own for
+ * board and bodyweight work, where the load cannot change by five percent — there the run's
+ * progress is seconds, and a summary that only counted kilos would report nothing happened.
+ */
 data class ExerciseGain(
     val exerciseName: String,
     val fromKg: Double,
-    val toKg: Double
+    val toKg: Double,
+    val fromTulSec: Int = 0,
+    val toTulSec: Int = 0
 ) {
     val gainedKg: Double get() = toKg - fromKg
-    val improved: Boolean get() = gainedKg > 0.01
+    val gainedTulSec: Int get() = toTulSec - fromTulSec
+    val improved: Boolean get() = gainedKg > 0.01 || (gainedKg <= 0.01 && gainedTulSec > 0)
 }
 
 /**
@@ -34,16 +43,20 @@ data class RunSummary(
     /** Total weight added across every exercise — the run's headline number. */
     val totalGainKg: Double get() = gains.sumOf { it.gainedKg }.coerceAtLeast(0.0)
 
+    /** Seconds added, which is the only axis a bodyweight run can move. */
+    val totalGainTulSec: Int get() = gains.sumOf { it.gainedTulSec }.coerceAtLeast(0)
+
     val isComplete: Boolean get() = endedBy != null
 }
 
 /**
  * Reads runs out of the training log.
  *
- * A stall is not a failure state and the summary should never read like one. Missing a target
- * by more than a rep is the protocol's own signal that the gap between sessions is now too
- * short — the block did its job, the weights it earned are kept, and the next block runs on
- * more rest. Ending a run is the mechanism working, not the user falling short.
+ * A stall is not a failure state and the summary should never read like one. Failing to match
+ * the time a load held last session is the protocol's own signal that the gap between
+ * sessions is now too short — the block did its job, the loads it earned are kept, and the
+ * next block runs on more rest. Ending a run is the mechanism working, not the user falling
+ * short.
  */
 object RunEngine {
 
@@ -64,15 +77,23 @@ object RunEngine {
                 )
                 val first = ordered.firstOrNull() ?: return@mapNotNull null
                 val last = ordered.last()
-                ExerciseGain(name, first.weightKg, last.weightKg)
+                ExerciseGain(
+                    exerciseName = name,
+                    fromKg = first.weightKg,
+                    toKg = last.weightKg,
+                    fromTulSec = first.tulSeconds,
+                    toTulSec = last.tulSeconds
+                )
             }
             .sortedByDescending { it.gainedKg }
 
+        // The session player stops at the stall, so the stalling exercise is whatever was
+        // logged last in that session. Re-deriving it by comparing TULs would mean refetching
+        // the previous session's logs to know what load each set was being judged against,
+        // and would still only arrive back at this same row.
         val stalledSession = completed.lastOrNull { it.stalled }
         val stalledOn = stalledSession?.let { session ->
-            logs.filter { it.sessionId == session.id }
-                .firstOrNull { it.reps < it.targetReps - 1 }
-                ?.exerciseName
+            logs.filter { it.sessionId == session.id }.maxByOrNull { it.id }?.exerciseName
         }
 
         return RunSummary(

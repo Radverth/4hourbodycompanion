@@ -25,7 +25,11 @@ jobs:
 
     steps:
       - name: Check out
+        # The migration check compares the schema against the base revision's entities, so it
+        # needs history rather than a single-commit shallow clone.
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -45,6 +49,22 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+
+      # Room's own migration test needs a device, which this workflow does not have. This
+      # runs the migration's SQL against real SQLite and compares the result with the schema
+      # Room will expect, which catches the failure mode that matters: a migration that
+      # compiles, ships, and then crashes on launch against an existing database.
+      - name: Check the newest Room migration
+        run: python3 tools/check_migration.py
+        env:
+          # The base commit, named rather than inferred: on a pull request it is the schema
+          # the migration will upgrade from, and on a push it is the previous tip, which
+          # re-checks the migration against whatever the merge actually produced. Passed
+          # through the environment like every other value from the event.
+          MIGRATION_BASE_SHA: >-
+            ${{ github.event_name == 'pull_request'
+                && github.event.pull_request.base.sha
+                || github.event.before }}
 
       - name: Run unit tests
         run: ./gradlew --no-daemon testDebugUnitTest

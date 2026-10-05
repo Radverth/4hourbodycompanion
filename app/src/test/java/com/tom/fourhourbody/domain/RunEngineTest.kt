@@ -34,27 +34,31 @@ class RunEngineTest {
         stalled = stalled
     )
 
-    private fun log(id: Long, sessionId: Long, name: String, weight: Double, reps: Int, target: Int = 7) =
-        ExerciseLogEntity(
-            id = id,
-            sessionId = sessionId,
-            exerciseName = name,
-            equipment = "Machine",
-            weightKg = weight,
-            reps = reps,
-            targetReps = target
-        )
+    private fun log(
+        id: Long,
+        sessionId: Long,
+        name: String,
+        weight: Double,
+        tul: Int = 75
+    ) = ExerciseLogEntity(
+        id = id,
+        sessionId = sessionId,
+        exerciseName = name,
+        equipment = "Machine",
+        weightKg = weight,
+        tulSeconds = tul
+    )
 
     @Test
     fun `a run reports what each exercise gained from first session to last`() {
         val sessions = listOf(session(1, 0), session(2, 4), session(3, 9))
         val logs = listOf(
-            log(1, 1, "Leg press", 100.0, 10, 10),
-            log(2, 1, "Chest press", 40.0, 8),
-            log(3, 2, "Leg press", 110.0, 10, 10),
-            log(4, 2, "Chest press", 45.0, 7),
-            log(5, 3, "Leg press", 120.0, 10, 10),
-            log(6, 3, "Chest press", 49.5, 7)
+            log(1, 1, "Leg press", 100.0),
+            log(2, 1, "Chest press", 40.0),
+            log(3, 2, "Leg press", 110.0),
+            log(4, 2, "Chest press", 45.0),
+            log(5, 3, "Leg press", 120.0),
+            log(6, 3, "Chest press", 49.5)
         )
 
         val summary = RunEngine.summarise(run, sessions, logs)
@@ -71,23 +75,24 @@ class RunEngineTest {
     fun `gains are ordered by how much was added, biggest first`() {
         val sessions = listOf(session(1, 0), session(2, 4))
         val logs = listOf(
-            log(1, 1, "Chest press", 40.0, 8),
-            log(2, 1, "Leg press", 100.0, 10, 10),
-            log(3, 2, "Chest press", 44.5, 7),
-            log(4, 2, "Leg press", 120.0, 10, 10)
+            log(1, 1, "Chest press", 40.0),
+            log(2, 1, "Leg press", 100.0),
+            log(3, 2, "Chest press", 44.5),
+            log(4, 2, "Leg press", 120.0)
         )
         val summary = RunEngine.summarise(run, sessions, logs)
         assertEquals("Leg press", summary.gains.first().exerciseName)
     }
 
     @Test
-    fun `the exercise that stalled is named from the session that ended the run`() {
+    fun `the stalling exercise is the one the stalled session ended on`() {
+        // A stall stops the session on the spot, so the last row logged is the exercise that
+        // stalled. Nothing after it was run.
         val sessions = listOf(session(1, 0), session(2, 4, stalled = true))
         val logs = listOf(
-            log(1, 1, "Leg press", 100.0, 10, 10),
-            log(2, 2, "Leg press", 110.0, 10, 10),
-            // Four reps against a target of seven: more than one short, so this is the stall.
-            log(3, 2, "Overhead press", 45.0, 4)
+            log(1, 1, "Leg press", 100.0),
+            log(2, 2, "Leg press", 110.0),
+            log(3, 2, "Overhead press", 45.0, tul = 58)
         )
 
         val summary = RunEngine.summarise(run, sessions, logs)
@@ -95,10 +100,26 @@ class RunEngineTest {
     }
 
     @Test
-    fun `one rep short does not count as the stall`() {
-        val sessions = listOf(session(1, 0, stalled = true))
-        val logs = listOf(log(1, 1, "Chest press", 40.0, 6))
+    fun `a run with no stalled session names no stalling exercise`() {
+        val sessions = listOf(session(1, 0))
+        val logs = listOf(log(1, 1, "Chest press", 40.0))
         assertNull(RunEngine.summarise(run, sessions, logs).stalledOn)
+    }
+
+    @Test
+    fun `a bodyweight run reports the seconds it gained when the load cannot move`() {
+        // Board work has no plates, so a run that improved would otherwise report nothing.
+        val sessions = listOf(session(1, 0), session(2, 7))
+        val logs = listOf(
+            log(1, 1, "Wall sit", 0.0, tul = 62),
+            log(2, 2, "Wall sit", 0.0, tul = 94)
+        )
+        val summary = RunEngine.summarise(run, sessions, logs)
+        val wallSit = summary.gains.first()
+        assertEquals(0.0, wallSit.gainedKg, 0.001)
+        assertEquals(32, wallSit.gainedTulSec)
+        assertTrue(wallSit.improved)
+        assertEquals(32, summary.totalGainTulSec)
     }
 
     @Test
@@ -129,8 +150,8 @@ class RunEngineTest {
     fun `a run that only ever lost weight reports no total gain rather than a negative`() {
         val sessions = listOf(session(1, 0), session(2, 4))
         val logs = listOf(
-            log(1, 1, "Chest press", 50.0, 8),
-            log(2, 2, "Chest press", 45.0, 5)
+            log(1, 1, "Chest press", 50.0, tul = 80),
+            log(2, 2, "Chest press", 45.0, tul = 70)
         )
         val summary = RunEngine.summarise(run, sessions, logs)
         assertEquals(0.0, summary.totalGainKg, 0.001)

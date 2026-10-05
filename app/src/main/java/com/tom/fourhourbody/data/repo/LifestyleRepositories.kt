@@ -34,13 +34,24 @@ class ColdRepository(private val dao: ColdDao) {
     fun observeBetween(from: LocalDate, to: LocalDate): Flow<List<ColdExposureLogEntity>> =
         dao.observeBetween(from, to)
 
+    /** Timed exposures only; the cold-water tick is counted separately. */
     fun countBetween(from: LocalDate, to: LocalDate): Flow<Int> = dao.countBetween(from, to)
+
+    fun countColdWaterDaysBetween(from: LocalDate, to: LocalDate): Flow<Int> =
+        dao.countColdWaterDaysBetween(from, to)
 
     fun observeRecent(limit: Int = 20): Flow<List<ColdExposureLogEntity>> = dao.observeRecent(limit)
 
-    suspend fun log(date: LocalDate, type: ColdExposureType, durationSec: Int, notes: String?) =
+    suspend fun log(date: LocalDate, type: ColdExposureType, durationSec: Int?, notes: String?) =
         dao.insert(
-            ColdExposureLogEntity(date = date, type = type, durationSec = durationSec, notes = notes)
+            ColdExposureLogEntity(
+                date = date,
+                type = type,
+                // The drink has no duration to record, and storing a zero would read as a
+                // zero-second exposure rather than as "not applicable".
+                durationSec = durationSec?.takeIf { type.isTimed },
+                notes = notes
+            )
         )
 
     suspend fun delete(log: ColdExposureLogEntity) = dao.delete(log)

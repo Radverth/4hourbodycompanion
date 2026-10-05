@@ -29,5 +29,16 @@ enum class StretchMode { HOLD, REPS }
 enum class ColdExposureType(val label: String) {
     SHOWER("Cold shower"),
     ICE_PACK("Ice pack"),
-    PRE_BED_BATH("Pre-bed bath")
+    PRE_BED_BATH("Pre-bed bath"),
+
+    /**
+     * The one type with no duration: you drank cold water today or you didn't. It is logged
+     * here rather than in the nutrition pillar because the mechanism is thermic — the body
+     * spends energy reheating it — but the hydration line it feeds is read from this table,
+     * so a day's 3 litres is one tick and not two.
+     */
+    COLD_WATER_DRINK("Cold water");
+
+    /** Only the timed types want a stopwatch; the drink is a tick. */
+    val isTimed: Boolean get() = this != COLD_WATER_DRINK
 }

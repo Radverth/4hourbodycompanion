@@ -5,15 +5,34 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** A bundled reference document. Content lives in assets, never in hardcoded strings. */
-enum class ReferenceDoc(val title: String, val fileName: String) {
+/** Which pillar's screen a reference document belongs on. */
+enum class ReferenceSection { NUTRITION, SLEEP }
+
+/**
+ * A bundled reference document. Content lives in assets, never in hardcoded strings.
+ *
+ * [section] is what each screen filters on. It used to be an exclusion list — nutrition
+ * showed everything except the sleep document — which quietly broke the first time a
+ * document was added for another pillar, and took the heading's count with it.
+ */
+enum class ReferenceDoc(
+    val title: String,
+    val fileName: String,
+    val section: ReferenceSection = ReferenceSection.NUTRITION
+) {
     SLOW_CARB_RULES("Slow-Carb rules", "slow_carb_rules.md"),
     HYBRID_RULES("Hybrid rules", "hybrid_rules.md"),
     MEAL_PLAN("Current meal plan", "meal_plan.md"),
     SAUCES("Sauces reference", "sauces.md"),
     GRAB_AND_GO("Grab-and-go & soup", "grab_and_go.md"),
     DAMAGE_CONTROL("Damage control tactics", "damage_control.md"),
-    SLEEP("Sleep reference", "sleep_reference.md")
+    SYNERGIZE("Synergize & omega ratio", "synergize.md"),
+    SLEEP("Sleep reference", "sleep_reference.md", ReferenceSection.SLEEP);
+
+    companion object {
+        fun inSection(section: ReferenceSection): List<ReferenceDoc> =
+            entries.filter { it.section == section }
+    }
 }
 
 /**

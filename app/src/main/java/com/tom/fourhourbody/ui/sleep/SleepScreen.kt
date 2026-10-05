@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -15,6 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tom.fourhourbody.data.reference.ReferenceDoc
+import com.tom.fourhourbody.data.reference.ReferenceSection
+import com.tom.fourhourbody.domain.SleepTargets
 import com.tom.fourhourbody.ui.common.CheckRow
 import com.tom.fourhourbody.ui.common.ChipRow
 import com.tom.fourhourbody.ui.common.SectionCard
@@ -22,7 +26,7 @@ import com.tom.fourhourbody.ui.common.rememberContainer
 import com.tom.fourhourbody.util.displayShort
 
 @Composable
-fun SleepScreen() {
+fun SleepScreen(onOpenReference: (ReferenceDoc) -> Unit) {
     val container = rememberContainer()
     val viewModel: SleepViewModel = viewModel(factory = SleepViewModel.factory(container))
     val log by viewModel.log.collectAsStateWithLifecycle()
@@ -97,6 +101,35 @@ fun SleepScreen() {
                     )
                 }
             }
+        }
+
+        item {
+            SectionCard(
+                title = "Hours slept",
+                subtitle = "The recovery chapter wants ${SleepTargets.RANGE_LABEL} hours. A " +
+                    "night you rated four out of five and slept five hours of is not a good " +
+                    "night, and only one of those two numbers would have said so."
+            ) {
+                ChipRow {
+                    SleepTargets.CHOICES.forEach { hours ->
+                        FilterChip(
+                            selected = log?.hoursSlept == hours,
+                            onClick = {
+                                viewModel.update {
+                                    it.copy(
+                                        hoursSlept = if (it.hoursSlept == hours) null else hours
+                                    )
+                                }
+                            },
+                            label = { Text(SleepTargets.label(hours)) }
+                        )
+                    }
+                }
+            }
+        }
+
+        items(ReferenceDoc.inSection(ReferenceSection.SLEEP), key = { "ref-${it.name}" }) { doc ->
+            SectionCard(title = doc.title, onClick = { onOpenReference(doc) })
         }
 
         item {

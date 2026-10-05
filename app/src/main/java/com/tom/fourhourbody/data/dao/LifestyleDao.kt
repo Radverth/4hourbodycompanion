@@ -41,8 +41,28 @@ interface ColdDao {
     @Query("SELECT * FROM cold_exposure_logs WHERE date BETWEEN :from AND :to ORDER BY date DESC, id DESC")
     fun observeBetween(from: LocalDate, to: LocalDate): Flow<List<ColdExposureLogEntity>>
 
-    @Query("SELECT COUNT(*) FROM cold_exposure_logs WHERE date BETWEEN :from AND :to")
+    /**
+     * Timed exposures only. A glass of cold water is logged here for the thermic effect, but
+     * counting it as a cold exposure would quietly inflate the pillar's weekly figure with
+     * something that takes no willpower at all — and an adherence number you can raise by
+     * drinking a glass of water is one you stop reading.
+     */
+    @Query(
+        """
+        SELECT COUNT(*) FROM cold_exposure_logs
+        WHERE date BETWEEN :from AND :to AND type != 'COLD_WATER_DRINK'
+        """
+    )
     fun countBetween(from: LocalDate, to: LocalDate): Flow<Int>
+
+    /** Days with a cold-water tick, which is what the hydration line reads. */
+    @Query(
+        """
+        SELECT COUNT(DISTINCT date) FROM cold_exposure_logs
+        WHERE date BETWEEN :from AND :to AND type = 'COLD_WATER_DRINK'
+        """
+    )
+    fun countColdWaterDaysBetween(from: LocalDate, to: LocalDate): Flow<Int>
 
     @Query("SELECT * FROM cold_exposure_logs ORDER BY date DESC, id DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<ColdExposureLogEntity>>

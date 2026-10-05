@@ -222,22 +222,50 @@ fun SettingsScreen(onBack: () -> Unit) {
                         )
                         Spacer(Modifier.height(8.dp))
                         SwitchRow(
-                            label = "Six-Minute Abs block",
-                            checked = settings.sixMinuteAbsEnabled,
+                            label = "Big Three only",
+                            checked = settings.bigThreeOnly,
                             onCheckedChange = { value ->
-                                viewModel.update { it.copy(sixMinuteAbsEnabled = value) }
+                                viewModel.update { it.copy(bigThreeOnly = value) }
                             }
                         )
-                        NumberField(
-                            label = "Default bell weight (kg)",
-                            value = settings.defaultBellWeightKg.toString(),
-                            onValueChange = { raw ->
-                                raw.toDoubleOrNull()?.let { value ->
-                                    viewModel.update { it.copy(defaultBellWeightKg = value) }
-                                }
-                            },
-                            decimal = true,
-                            modifier = Modifier.width(200.dp)
+                        Text(
+                            "Leg press, pulldown and chest press; drops the row and the " +
+                                "overhead press. Applied when a session is generated, so the " +
+                                "slot list itself is untouched and turning this off restores " +
+                                "all five.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            NumberField(
+                                label = "Up (s)",
+                                value = settings.tempoUpSec.toString(),
+                                onValueChange = { raw ->
+                                    raw.toIntOrNull()?.let { value ->
+                                        viewModel.update { it.copy(tempoUpSec = value) }
+                                    }
+                                },
+                                modifier = Modifier.width(110.dp)
+                            )
+                            NumberField(
+                                label = "Down (s)",
+                                value = settings.tempoDownSec.toString(),
+                                onValueChange = { raw ->
+                                    raw.toIntOrNull()?.let { value ->
+                                        viewModel.update { it.copy(tempoDownSec = value) }
+                                    }
+                                },
+                                modifier = Modifier.width(110.dp)
+                            )
+                        }
+                        Text(
+                            "Ten and ten is the book's figure, and it says in as many words " +
+                                "to use whatever stays smooth rather than becoming a " +
+                                "stop-start struggle. Every set records the cadence it was " +
+                                "actually performed at.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(Modifier.height(8.dp))
                         SwitchRow(

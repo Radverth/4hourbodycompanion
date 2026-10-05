@@ -3,7 +3,9 @@ package com.tom.fourhourbody.data.db
 import androidx.room.TypeConverter
 import com.tom.fourhourbody.data.entity.ColdExposureType
 import com.tom.fourhourbody.data.entity.DietMode
+import com.tom.fourhourbody.data.entity.PlateauTechnique
 import com.tom.fourhourbody.data.entity.RunEnd
+import com.tom.fourhourbody.data.entity.SessionKind
 import com.tom.fourhourbody.data.entity.StretchMode
 import com.tom.fourhourbody.data.entity.StretchRoutine
 import java.time.DayOfWeek
@@ -38,6 +40,19 @@ class Converters {
 
     @TypeConverter
     fun stringToRunEnd(value: String?): RunEnd? = value?.let(RunEnd::valueOf)
+
+    @TypeConverter
+    fun sessionKindToString(value: SessionKind?): String? = value?.name
+
+    @TypeConverter
+    fun stringToSessionKind(value: String?): SessionKind? = value?.let(SessionKind::valueOf)
+
+    @TypeConverter
+    fun plateauTechniqueToString(value: PlateauTechnique?): String? = value?.name
+
+    @TypeConverter
+    fun stringToPlateauTechnique(value: String?): PlateauTechnique? =
+        value?.let(PlateauTechnique::valueOf)
 
     @TypeConverter
     fun dietModeToString(value: DietMode?): String? = value?.name

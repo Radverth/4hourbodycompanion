@@ -30,7 +30,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tom.fourhourbody.data.entity.DietMode
 import com.tom.fourhourbody.data.reference.ReferenceDoc
+import com.tom.fourhourbody.data.reference.ReferenceSection
 import com.tom.fourhourbody.ui.common.CheckRow
+import com.tom.fourhourbody.ui.common.NumberField
 import com.tom.fourhourbody.ui.common.SectionCard
 import com.tom.fourhourbody.ui.common.SwitchRow
 import com.tom.fourhourbody.ui.common.rememberContainer
@@ -198,6 +200,72 @@ fun NutritionScreen(onOpenReference: (ReferenceDoc) -> Unit) {
         }
 
         item {
+            SectionCard(
+                title = "Synergize",
+                subtitle = "Four levers that compound with the training rather than standing " +
+                    "in for it. Nothing here has a target to miss."
+            ) {
+                Column {
+                    CheckRow(
+                        label = "Ate unprocessed",
+                        checked = state.synergize?.ateUnprocessed == true,
+                        onCheckedChange = { value ->
+                            viewModel.updateSynergize { it.copy(ateUnprocessed = value) }
+                        }
+                    )
+                    CheckRow(
+                        label = "Kept cool",
+                        checked = state.synergize?.keptCoolToday == true,
+                        onCheckedChange = { value ->
+                            viewModel.updateSynergize { it.copy(keptCoolToday = value) }
+                        }
+                    )
+                    CheckRow(
+                        label = "Stress managed",
+                        checked = state.synergize?.stressManaged == true,
+                        onCheckedChange = { value ->
+                            viewModel.updateSynergize { it.copy(stressManaged = value) }
+                        }
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    NumberField(
+                        label = "Water (litres)",
+                        value = state.synergize?.hydrationLiters?.let { "%.1f".format(it) } ?: "",
+                        onValueChange = { raw ->
+                            val litres = raw.toDoubleOrNull()
+                            viewModel.updateSynergize { it.copy(hydrationLiters = litres) }
+                        },
+                        decimal = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Around 3 litres. Staying slightly cool is on this list because the " +
+                            "body spends energy reheating itself — which is also why the cold " +
+                            "water you log in the cold pillar counts here" +
+                            if (state.coldWaterDaysThisWeek > 0) {
+                                " (${state.coldWaterDaysThisWeek} " +
+                                    "${if (state.coldWaterDaysThisWeek == 1) "day" else "days"} " +
+                                    "this week)."
+                            } else {
+                                "."
+                            },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Palette.TextSecondary
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "The fifth lever in the book is training hard, which is the rest of " +
+                            "this app — restating it here as something to tick would be " +
+                            "double-counting the one you already did.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Palette.TextTertiary
+                    )
+                }
+            }
+        }
+
+        item {
             SectionCard(title = "Cheat day") {
                 SwitchRow(
                     label = "Today is the cheat day",
@@ -267,15 +335,14 @@ fun NutritionScreen(onOpenReference: (ReferenceDoc) -> Unit) {
             ) {
                 Text("Reference", style = MaterialTheme.typography.headlineSmall)
                 Text(
-                    "${ReferenceDoc.entries.size - 1}",
+                    "${ReferenceDoc.inSection(ReferenceSection.NUTRITION).size}",
                     style = NumeralSmall,
                     color = Palette.TextTertiary
                 )
             }
         }
 
-        // The sleep reference belongs to the Sleep pillar, not to this screen.
-        ReferenceDoc.entries.filterNot { it == ReferenceDoc.SLEEP }.forEach { doc ->
+        ReferenceDoc.inSection(ReferenceSection.NUTRITION).forEach { doc ->
             item(key = "ref-${doc.name}") {
                 SectionCard(title = doc.title, onClick = { onOpenReference(doc) })
             }

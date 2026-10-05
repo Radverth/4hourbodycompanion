@@ -27,7 +27,11 @@ class ColdViewModel(
     val countThisWeek: StateFlow<Int> = coldRepository.countBetween(today.minusDays(6), today)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
-    fun log(type: ColdExposureType, durationSec: Int, notes: String?) {
+    val coldWaterDaysThisWeek: StateFlow<Int> =
+        coldRepository.countColdWaterDaysBetween(today.minusDays(6), today)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    fun log(type: ColdExposureType, durationSec: Int?, notes: String?) {
         viewModelScope.launch { coldRepository.log(today, type, durationSec, notes) }
     }
 

@@ -107,6 +107,29 @@ data class SettingsEntity(
     /** One-time "locked position" form cue; dismissible, hence persisted. */
     val lockedPositionCueDismissed: Boolean = false,
 
+    /**
+     * Big Three instead of Big Five: leg press, pulldown and chest press, dropping the row
+     * and the overhead press. A session-generation override, so turning it off restores the
+     * full five without having reconstructed anything.
+     */
+    @ColumnInfo(defaultValue = "0")
+    val bigThreeOnly: Boolean = false,
+
+    /**
+     * The cadence, in seconds each way. Ten and ten is the book's figure but it says in as
+     * many words to use whatever stays smooth rather than becoming a stop-start struggle, so
+     * it is a setting and every log records the cadence it was performed at.
+     */
+    @ColumnInfo(defaultValue = "10")
+    val tempoUpSec: Int = 10,
+    @ColumnInfo(defaultValue = "10")
+    val tempoDownSec: Int = 10,
+
+    /**
+     * Carried over from the previous protocol's conditioning block, which this build no
+     * longer runs. Kept so the sessions logged under it still read back, rather than dropping
+     * two columns from the settings table for no gain.
+     */
     val defaultBellWeightKg: Double = 24.0,
     val sixMinuteAbsEnabled: Boolean = true
 ) {

@@ -9,6 +9,8 @@ import com.tom.fourhourbody.AppContainer
 import com.tom.fourhourbody.data.entity.DamageControlLogEntity
 import com.tom.fourhourbody.data.entity.DietDayLogEntity
 import com.tom.fourhourbody.data.entity.DietMode
+import com.tom.fourhourbody.data.entity.SynergizeLogEntity
+import com.tom.fourhourbody.data.repo.ColdRepository
 import com.tom.fourhourbody.data.repo.NutritionRepository
 import com.tom.fourhourbody.data.repo.SettingsRepository
 import com.tom.fourhourbody.data.repo.TrainingRepository
@@ -28,8 +30,11 @@ data class NutritionUiState(
     val date: LocalDate,
     val day: DietDayLogEntity?,
     val damageControl: DamageControlLogEntity?,
+    val synergize: SynergizeLogEntity?,
     val defaultMode: DietMode,
-    val isTrainingDay: Boolean
+    val isTrainingDay: Boolean,
+    /** Days this week with a cold-water tick, which is the hydration line's other half. */
+    val coldWaterDaysThisWeek: Int = 0
 ) {
     val mode: DietMode get() = day?.mode ?: defaultMode
 
@@ -41,7 +46,8 @@ data class NutritionUiState(
 class NutritionViewModel(
     private val nutritionRepository: NutritionRepository,
     private val settingsRepository: SettingsRepository,
-    trainingRepository: TrainingRepository
+    trainingRepository: TrainingRepository,
+    private val coldRepository: ColdRepository
 ) : ViewModel() {
 
     private val today = LocalDate.now()
@@ -64,19 +70,24 @@ class NutritionViewModel(
     val state: StateFlow<NutritionUiState> = combine(
         dayDetails,
         settingsRepository.settings,
-        trainingDay
-    ) { (day, damage), settings, isTrainingDay ->
+        trainingDay,
+        nutritionRepository.observeSynergize(today),
+        coldRepository.countColdWaterDaysBetween(today.minusDays(6), today)
+    ) { details, settings, isTrainingDay, synergize, coldWaterDays ->
+        val (day, damage) = details
         NutritionUiState(
             date = today,
             day = day,
             damageControl = damage,
+            synergize = synergize,
             defaultMode = settings.dietMode,
-            isTrainingDay = isTrainingDay
+            isTrainingDay = isTrainingDay,
+            coldWaterDaysThisWeek = coldWaterDays
         )
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
-        NutritionUiState(today, null, null, DietMode.SLOW_CARB, false)
+        NutritionUiState(today, null, null, null, DietMode.SLOW_CARB, false)
     )
 
     val referenceMode: StateFlow<DietMode> = settingsRepository.settings
@@ -111,6 +122,10 @@ class NutritionViewModel(
         }
     }
 
+    fun updateSynergize(transform: (SynergizeLogEntity) -> SynergizeLogEntity) {
+        viewModelScope.launch { nutritionRepository.updateSynergize(today, transform) }
+    }
+
     fun updateDamageControl(transform: (DamageControlLogEntity) -> DamageControlLogEntity) {
         viewModelScope.launch {
             val day = nutritionRepository.ensureDay(today, defaultMode())
@@ -124,7 +139,8 @@ class NutritionViewModel(
                 NutritionViewModel(
                     container.nutritionRepository,
                     container.settingsRepository,
-                    container.trainingRepository
+                    container.trainingRepository,
+                    container.coldRepository
                 )
             }
         }

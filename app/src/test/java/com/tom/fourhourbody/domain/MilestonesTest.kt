@@ -52,7 +52,11 @@ class MilestonesTest {
 
     @Test
     fun `progress never overfills past its target`() {
-        val stats = Stats(sessionsCompleted = 900, totalBankedKg = 9_000.0)
+        val stats = Stats(
+            sessionsCompleted = 900,
+            totalBankedKg = 9_000.0,
+            totalTulSeconds = 900_000
+        )
         Milestones.ALL.forEach { milestone ->
             assertTrue(milestone.id, milestone.fraction(stats) <= 1f)
         }
@@ -65,6 +69,7 @@ class MilestonesTest {
             runsCompleted = 1_000,
             totalBankedKg = 10_000.0,
             bestGainOnOneLiftKg = 1_000.0,
+            totalTulSeconds = 1_000_000,
             bestDietChain = 1_000
         )
         assertEquals(Milestones.ALL.size, Milestones.level(maxed))

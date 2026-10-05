@@ -22,6 +22,8 @@ import com.tom.fourhourbody.domain.progress.Milestones
 import com.tom.fourhourbody.domain.today.Focus
 import com.tom.fourhourbody.domain.today.FocusInputs
 import com.tom.fourhourbody.domain.today.FocusRules
+import com.tom.fourhourbody.domain.training.SessionPlanner
+import com.tom.fourhourbody.util.kgDisplay
 import com.tom.fourhourbody.domain.synergy.SynergyEngine
 import com.tom.fourhourbody.domain.synergy.SynergyState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,7 +38,19 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 
 /** What the hero card promises you for turning up. */
-data class NextWeight(val exerciseName: String, val weightKg: Double, val gainKg: Double)
+/**
+ * What last session earned for this one. [position] carries the board handle position for
+ * bodyweight work, where the load cannot move in kilos.
+ */
+data class NextWeight(
+    val exerciseName: String,
+    val weightKg: Double,
+    val gainKg: Double,
+    val position: String? = null
+) {
+    /** Kilos when there are plates to add, the handle position when there are not. */
+    fun loadDisplay(): String = if (weightKg > 0.01) weightKg.kgDisplay() else position ?: "—"
+}
 
 class DashboardViewModel(
     dashboardRepository: DashboardRepository,
@@ -108,15 +122,25 @@ class DashboardViewModel(
      * already computes it; the app simply never showed it.
      */
     private suspend fun loadNextWeights() {
-        _nextWeights.value = trainingRepository.activeStrengthConfigs().mapNotNull { config ->
-            val last = trainingRepository.lastLogFor(config.exerciseName) ?: return@mapNotNull null
-            val next = trainingRepository.openingWeightFor(config) ?: return@mapNotNull null
-            NextWeight(
-                exerciseName = config.exerciseName,
-                weightKg = next,
-                gainKg = next - last.weightKg
-            )
-        }
+        val frequency = trainingRepository.frequency()
+        val settings = settingsRepository.current()
+        val kind = SessionPlanner.kindFor(frequency.cuttingPhaseActive, hasEquipment = true)
+        _nextWeights.value = trainingRepository
+            .exercisesFor(kind, settings.bigThreeOnly)
+            .mapNotNull { config ->
+                val last = trainingRepository.lastSetFor(config.exerciseName)
+                    ?: return@mapNotNull null
+                val next = trainingRepository.openingLoadFor(config) ?: return@mapNotNull null
+                // Nothing to announce when the load is unchanged — staying inside the window
+                // is the normal case, and a row saying "same as last time" is not a reward.
+                if (next.sameAs(last.load)) return@mapNotNull null
+                NextWeight(
+                    exerciseName = config.exerciseName,
+                    weightKg = next.weightKg,
+                    gainKg = next.weightKg - last.load.weightKg,
+                    position = next.position
+                )
+            }
     }
 
     /** One tap for a day that went to plan, without leaving the dashboard. */

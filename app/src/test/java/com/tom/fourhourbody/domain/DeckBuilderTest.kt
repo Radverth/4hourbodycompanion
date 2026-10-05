@@ -19,7 +19,6 @@ class DeckBuilderTest {
         slotName = "Slot $id",
         exerciseName = name,
         equipment = "Machine",
-        targetReps = 7,
         isActive = active,
         orderIndex = id.toInt()
     )
@@ -29,8 +28,7 @@ class DeckBuilderTest {
         exerciseName = name,
         equipment = "Machine",
         weightKg = kg,
-        reps = 7,
-        targetReps = 7
+        tulSeconds = 75
     )
 
     @Test

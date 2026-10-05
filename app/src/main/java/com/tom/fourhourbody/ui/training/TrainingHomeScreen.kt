@@ -25,9 +25,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material3.OutlinedButton
+import com.tom.fourhourbody.data.entity.SessionKind
 import com.tom.fourhourbody.domain.run.RunSummary
+import com.tom.fourhourbody.domain.training.SessionScheduler
 import com.tom.fourhourbody.domain.training.TrainingConstants
 import com.tom.fourhourbody.ui.common.SectionCard
+import com.tom.fourhourbody.ui.common.SwitchRow
 import com.tom.fourhourbody.ui.common.rememberContainer
 import com.tom.fourhourbody.ui.theme.NumeralMedium
 import com.tom.fourhourbody.ui.theme.NumeralSmall
@@ -37,7 +41,7 @@ import com.tom.fourhourbody.util.kgDisplay
 
 @Composable
 fun TrainingHomeScreen(
-    onStartSession: () -> Unit,
+    onStartSession: (SessionKind) -> Unit,
     onOpenHistory: () -> Unit,
     onOpenExercises: () -> Unit,
     onOpenDeck: () -> Unit
@@ -48,6 +52,9 @@ fun TrainingHomeScreen(
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
     val runs by viewModel.runs.collectAsStateWithLifecycle()
     val runStatus by viewModel.runStatus.collectAsStateWithLifecycle()
+    val frequency by viewModel.frequency.collectAsStateWithLifecycle()
+    val plateau by viewModel.plateau.collectAsStateWithLifecycle()
+    val cutting = frequency?.cuttingPhaseActive == true
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -63,7 +70,7 @@ fun TrainingHomeScreen(
                 runStatus != null -> NotStartedRunStrip(
                     runNumber = runStatus!!.runNumber,
                     restDays = schedule?.restDaysBetween,
-                    onStartSession = onStartSession
+                    onStartSession = { onStartSession(SessionKind.STANDARD) }
                 )
             }
         }
@@ -78,7 +85,25 @@ fun TrainingHomeScreen(
                 },
                 subtitle = current?.let {
                     buildString {
-                        append("Rest days between sessions: ${it.restDaysBetween}. ")
+                        append("${it.restDaysBetween} rest days between sessions")
+                        // The gap widening is the protocol working. Saying so matters: a
+                        // number that only ever grows looks like a tracker reporting decline
+                        // unless something explains that growing is the intended direction.
+                        append(
+                            when {
+                                SessionScheduler.isUnusuallyLongGap(it.restDaysBetween) ->
+                                    " — a long way out. The book is clear that ten to " +
+                                        "fourteen days costs nothing, so this is still the " +
+                                        "mechanism working; past that it is worth a look at " +
+                                        "whether something else is going on."
+                                it.restDaysBetween > TrainingConstants.INITIAL_REST_DAYS ->
+                                    " — wider than the starting gap, which is the protocol " +
+                                        "working. A set taken to failure takes longer to " +
+                                        "recover from the stronger you get."
+                                else -> ", the protocol's starting point."
+                            }
+                        )
+                        append(" ")
                         append(
                             it.nextSessionDate
                                 ?.let { date -> "Due from ${date.displayShort()}." }
@@ -87,27 +112,82 @@ fun TrainingHomeScreen(
                     }
                 }
             ) {
-                Button(onClick = onStartSession, modifier = Modifier.fillMaxWidth()) {
-                    Text("Start session")
+                Button(
+                    onClick = { onStartSession(SessionKind.STANDARD) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (cutting) "Start cutting session" else "Start session")
                 }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { onStartSession(SessionKind.NO_EQUIPMENT) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("No equipment tonight")
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Board and bodyweight, same clock and same rules. On the board a handle " +
+                        "position is the load, so a position only changes once it has cleared " +
+                        "${TrainingConstants.TARGET_TUL_MAX_SEC}s twice running.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.TextSecondary
+                )
+            }
+        }
+
+        item {
+            SectionCard(
+                title = "Cutting phase",
+                subtitle = "Leg press plus one alternating upper-body exercise — chest press " +
+                    "one session, seated row the next."
+            ) {
+                SwitchRow(
+                    label = if (cutting) "On" else "Off",
+                    checked = cutting,
+                    onCheckedChange = viewModel::setCuttingPhase
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "For a sustained calorie deficit, not a single session. The book's own " +
+                        "fat-loss study found that cutting volume down during a deficit kept " +
+                        "twice the muscle and lost twice the fat, because dieting is already " +
+                        "spending the recovery the training needs. Your slot list is left " +
+                        "exactly as it is — this only changes which exercises a session picks.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Palette.TextSecondary
+                )
+            }
+        }
+
+        plateau?.let { stuck ->
+            item {
+                PlateauOffer(
+                    plateau = stuck,
+                    onTechniqueLogged = { viewModel.logPlateauTechnique(stuck.exerciseName, it) }
+                )
             }
         }
 
         item {
             SectionCard(
                 title = "Protocol",
-                subtitle = "Target ${TrainingConstants.DEFAULT_TARGET_REPS}+ reps to failure " +
-                    "(${TrainingConstants.LEG_PRESS_TARGET_REPS}+ on leg press), " +
-                    "${TrainingConstants.TEMPO_UP_SEC}s up / ${TrainingConstants.TEMPO_DOWN_SEC}s " +
-                    "down, ${TrainingConstants.REST_BETWEEN_EXERCISES_SEC / 60} minutes between " +
-                    "exercises. A miss of more than one rep ends the session and adds a rest day."
+                subtitle = "One set per exercise to positive failure at " +
+                    "${TrainingConstants.TEMPO_UP_SEC}s up / " +
+                    "${TrainingConstants.TEMPO_DOWN_SEC}s down, aiming for " +
+                    "${TrainingConstants.TARGET_TUL_MIN_SEC}–" +
+                    "${TrainingConstants.TARGET_TUL_MAX_SEC} seconds under load, " +
+                    "${TrainingConstants.REST_BETWEEN_EXERCISES_SEC}s between exercises. " +
+                    "Clearing ${TrainingConstants.TARGET_TUL_MAX_SEC}s earns 5–10% more load. " +
+                    "Failing to match the same load's last time ends the session and adds a " +
+                    "rest day."
             )
         }
 
         item {
             SectionCard(
                 title = "Exercises",
-                subtitle = "Slots, equipment and rep targets.",
+                subtitle = "Slots, equipment and the seconds each is aiming for.",
                 onClick = onOpenExercises
             )
         }

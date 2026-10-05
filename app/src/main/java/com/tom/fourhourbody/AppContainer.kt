@@ -27,7 +27,9 @@ class AppContainer(private val appContext: Context) {
     val database: AppDatabase by lazy { AppDatabase.get(appContext) }
 
     val settingsRepository by lazy { SettingsRepository(database.settingsDao()) }
-    val trainingRepository by lazy { TrainingRepository(database.trainingDao()) }
+    val trainingRepository by lazy {
+        TrainingRepository(database.trainingDao(), database.plateauDao())
+    }
     val stretchRepository by lazy { StretchRepository(database.stretchDao()) }
     val nutritionRepository by lazy { NutritionRepository(database.nutritionDao()) }
     val sleepRepository by lazy { SleepRepository(database.sleepDao()) }

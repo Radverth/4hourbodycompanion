@@ -3,6 +3,7 @@ package com.tom.fourhourbody.data.repo
 import com.tom.fourhourbody.data.entity.ColdExposureType
 import com.tom.fourhourbody.data.entity.Pillar
 import com.tom.fourhourbody.data.entity.SettingsEntity
+import com.tom.fourhourbody.domain.training.TrainingConstants
 import com.tom.fourhourbody.data.entity.StretchRoutine
 import com.tom.fourhourbody.domain.adherence.AdherenceRules
 import com.tom.fourhourbody.domain.adherence.PillarAdherence
@@ -24,8 +25,17 @@ data class TrainingToday(
     val completedToday: Boolean,
     val lastSessionStalled: Boolean,
     val restDaysBetween: Int,
-    val nextSessionDate: LocalDate?
-)
+    val nextSessionDate: LocalDate?,
+    val cuttingPhaseActive: Boolean = false
+) {
+    /**
+     * A gap wider than the protocol's starting point. Today mentions this in one clause
+     * rather than a block of its own, because the number growing is the mechanism working
+     * and the only thing worth saying about it is that.
+     */
+    val gapHasWidened: Boolean
+        get() = restDaysBetween > TrainingConstants.INITIAL_REST_DAYS
+}
 
 data class StretchesToday(
     val inlineDoneThisSession: Boolean,
@@ -82,14 +92,16 @@ class DashboardRepository(
 
         val trainingFlow = combine(
             trainingRepository.schedule(date),
-            trainingRepository.observeSessionsOn(date)
-        ) { schedule, todaysSessions ->
+            trainingRepository.observeSessionsOn(date),
+            trainingRepository.observeFrequency()
+        ) { schedule, todaysSessions, frequency ->
             TrainingToday(
                 dueToday = schedule.dueToday && todaysSessions.none { it.completed },
                 completedToday = todaysSessions.any { it.completed },
                 lastSessionStalled = todaysSessions.firstOrNull { it.completed }?.stalled == true,
                 restDaysBetween = schedule.restDaysBetween,
-                nextSessionDate = schedule.nextSessionDate
+                nextSessionDate = schedule.nextSessionDate,
+                cuttingPhaseActive = frequency?.cuttingPhaseActive == true
             )
         }
 

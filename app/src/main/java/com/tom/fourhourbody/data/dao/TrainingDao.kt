@@ -12,8 +12,10 @@ import com.tom.fourhourbody.data.entity.FrequencySettingEntity
 import com.tom.fourhourbody.data.entity.KettlebellRoundEntity
 import com.tom.fourhourbody.data.entity.RunEntity
 import com.tom.fourhourbody.data.entity.SessionEntity
-import kotlinx.coroutines.flow.Flow
+import com.tom.fourhourbody.data.entity.SessionKind
+import com.tom.fourhourbody.domain.training.SessionOutcome
 import java.time.LocalDate
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TrainingDao {
@@ -115,6 +117,64 @@ interface TrainingDao {
     )
     suspend fun getBestEverFor(exerciseName: String): Double?
 
+    /** The longest this exercise has ever been held, across every completed session. */
+    @Query(
+        """
+        SELECT MAX(el.tulSeconds) FROM exercise_logs el
+        INNER JOIN sessions s ON s.id = el.sessionId
+        WHERE el.exerciseName = :exerciseName AND s.completed = 1
+        """
+    )
+    suspend fun getBestTulFor(exerciseName: String): Int?
+
+    /**
+     * Recent sets for one exercise, newest first. Read rather than aggregated because the
+     * question asked of them — how many sessions in a row at this exact load cleared the
+     * window — depends on the load of each, which SQL would need a window function to carry.
+     */
+    @Query(
+        """
+        SELECT el.* FROM exercise_logs el
+        INNER JOIN sessions s ON s.id = el.sessionId
+        WHERE el.exerciseName = :exerciseName AND s.completed = 1
+        ORDER BY s.date DESC, el.id DESC LIMIT :limit
+        """
+    )
+    suspend fun getRecentLogsFor(exerciseName: String, limit: Int): List<ExerciseLogEntity>
+
+    /** Recent completed sessions with the exercise each ended on, newest first. */
+    @Query(
+        """
+        SELECT
+            s.id AS sessionId,
+            s.date AS date,
+            s.stalled AS stalled,
+            (
+                SELECT el.exerciseName FROM exercise_logs el
+                WHERE el.sessionId = s.id ORDER BY el.id DESC LIMIT 1
+            ) AS lastExercise
+        FROM sessions s
+        WHERE s.completed = 1
+        ORDER BY s.date DESC, s.id DESC LIMIT :limit
+        """
+    )
+    suspend fun getRecentOutcomes(limit: Int): List<SessionOutcome>
+
+    /**
+     * Exercise names from completed sessions of one kind, newest first. Used to read the
+     * cutting phase's alternation back out of what was trained rather than storing a flag
+     * that could fall out of step with it.
+     */
+    @Query(
+        """
+        SELECT el.exerciseName FROM exercise_logs el
+        INNER JOIN sessions s ON s.id = el.sessionId
+        WHERE s.completed = 1 AND s.kind = :kind
+        ORDER BY s.date DESC, el.id DESC LIMIT :limit
+        """
+    )
+    suspend fun getRecentExerciseNamesOfKind(kind: SessionKind, limit: Int): List<String>
+
     @Insert
     suspend fun insertKettlebellRound(round: KettlebellRoundEntity): Long
 
@@ -126,6 +186,9 @@ interface TrainingDao {
 
     @Query("SELECT * FROM exercise_configs WHERE isActive = 1 ORDER BY orderIndex ASC, id ASC")
     suspend fun getActiveConfigs(): List<ExerciseConfigEntity>
+
+    @Query("DELETE FROM exercise_configs")
+    suspend fun deleteAllConfigs()
 
     @Query("SELECT * FROM exercise_configs WHERE id = :id")
     suspend fun getConfig(id: Long): ExerciseConfigEntity?

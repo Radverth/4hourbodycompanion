@@ -44,6 +44,7 @@ fun ColdScreen() {
     val viewModel: ColdViewModel = viewModel(factory = ColdViewModel.factory(container))
     val recent by viewModel.recent.collectAsStateWithLifecycle()
     val countThisWeek by viewModel.countThisWeek.collectAsStateWithLifecycle()
+    val coldWaterDays by viewModel.coldWaterDaysThisWeek.collectAsStateWithLifecycle()
 
     var type by remember { mutableStateOf(ColdExposureType.SHOWER) }
     var manualSeconds by remember { mutableStateOf("") }
@@ -69,7 +70,12 @@ fun ColdScreen() {
             Column {
                 Text("Cold exposure", style = MaterialTheme.typography.headlineMedium)
                 Text(
-                    "$countThisWeek this week.",
+                    "$countThisWeek exposure${if (countThisWeek == 1) "" else "s"} this week" +
+                        if (coldWaterDays > 0) {
+                            ", cold water on $coldWaterDays ${if (coldWaterDays == 1) "day" else "days"}."
+                        } else {
+                            "."
+                        },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -90,47 +96,65 @@ fun ColdScreen() {
             }
         }
 
-        item {
-            SectionCard(
-                title = "Duration",
-                subtitle = "Run the timer, or just type it in afterwards."
-            ) {
-                Column {
-                    Text(timedSeconds.asClock(), style = MaterialTheme.typography.displaySmall)
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(onClick = { running = !running }) {
-                            Text(if (running) "Pause" else "Start")
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                running = false
-                                elapsedMs = 0L
-                                timedSeconds = 0
-                            }
-                        ) { Text("Reset") }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    NumberField(
-                        label = "Or enter seconds",
-                        value = manualSeconds,
-                        onValueChange = { manualSeconds = it },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(12.dp))
+        if (!type.isTimed) {
+            item {
+                SectionCard(
+                    title = "Cold water",
+                    subtitle = "One tap. There is no duration to record — the body spends " +
+                        "energy reheating it either way, and this is also what the " +
+                        "nutrition pillar's hydration line reads."
+                ) {
                     Button(
-                        onClick = {
-                            val seconds = manualSeconds.toIntOrNull() ?: timedSeconds
-                            if (seconds > 0) {
-                                viewModel.log(type, seconds, null)
-                                running = false
-                                elapsedMs = 0L
-                                timedSeconds = 0
-                                manualSeconds = ""
-                            }
-                        },
+                        onClick = { viewModel.log(type, null, null) },
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("Save") }
+                    ) { Text("Logged cold water today") }
+                }
+            }
+        }
+
+        if (type.isTimed) {
+            item {
+                SectionCard(
+                    title = "Duration",
+                    subtitle = "Run the timer, or just type it in afterwards."
+                ) {
+                    Column {
+                        Text(timedSeconds.asClock(), style = MaterialTheme.typography.displaySmall)
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Button(onClick = { running = !running }) {
+                                Text(if (running) "Pause" else "Start")
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    running = false
+                                    elapsedMs = 0L
+                                    timedSeconds = 0
+                                }
+                            ) { Text("Reset") }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        NumberField(
+                            label = "Or enter seconds",
+                            value = manualSeconds,
+                            onValueChange = { manualSeconds = it },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = {
+                                val seconds = manualSeconds.toIntOrNull() ?: timedSeconds
+                                if (seconds > 0) {
+                                    viewModel.log(type, seconds, null)
+                                    running = false
+                                    elapsedMs = 0L
+                                    timedSeconds = 0
+                                    manualSeconds = ""
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Save") }
+                    }
                 }
             }
         }
@@ -145,7 +169,8 @@ fun ColdScreen() {
                 Column {
                     Text(log.type.label, style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "${log.date.displayShort()} · ${log.durationSec.asClock()}",
+                        log.date.displayShort() +
+                            (log.durationSec?.let { " · ${it.asClock()}" } ?: ""),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

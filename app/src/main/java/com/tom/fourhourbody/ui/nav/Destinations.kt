@@ -20,6 +20,12 @@ object Routes {
     const val MORE = "more"
     const val SETTINGS = "settings"
 
+    /**
+     * A no-equipment session is the same session player against different exercise rows, so
+     * it is the same route carrying which kind to run rather than a second screen.
+     */
+    fun session(kind: String) = "$SESSION?kind=$kind"
+
     fun deskReset(weekly: Boolean) = "$DESK_RESET?weekly=$weekly"
     fun reference(docName: String) = "$REFERENCE/$docName"
 }

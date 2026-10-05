@@ -31,6 +31,7 @@ class ProgressRepository(
             // tomorrow and its gains are already visible on the training screen.
             totalBankedKg = finished.sumOf { it.totalGainKg },
             bestGainOnOneLiftKg = bestGainOnOneLift(logs),
+            totalTulSeconds = logs.sumOf { it.tulSeconds },
             bestDietChain = motivation.nutrition.best
         )
     }

@@ -8,8 +8,9 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.tom.fourhourbody.AppContainer
 import com.tom.fourhourbody.data.entity.ExerciseConfigEntity
 import com.tom.fourhourbody.data.entity.ExerciseLogEntity
-import com.tom.fourhourbody.data.entity.KettlebellRoundEntity
+import com.tom.fourhourbody.data.entity.PlateauTechnique
 import com.tom.fourhourbody.data.entity.RunEnd
+import com.tom.fourhourbody.data.entity.SessionKind
 import com.tom.fourhourbody.data.entity.SettingsEntity
 import com.tom.fourhourbody.data.entity.StretchLogEntity
 import com.tom.fourhourbody.data.entity.StretchRoutine
@@ -18,17 +19,20 @@ import com.tom.fourhourbody.data.repo.StretchRepository
 import com.tom.fourhourbody.data.repo.TrainingRepository
 import com.tom.fourhourbody.domain.run.RunSummary
 import com.tom.fourhourbody.domain.training.ExerciseResult
+import com.tom.fourhourbody.domain.training.Load
+import com.tom.fourhourbody.domain.training.Plateau
+import com.tom.fourhourbody.domain.training.PreviousSet
 import com.tom.fourhourbody.domain.training.ProgressionEngine
 import com.tom.fourhourbody.domain.training.SessionEvaluation
-import com.tom.fourhourbody.domain.training.TrainingConstants
 import com.tom.fourhourbody.ui.stretches.StretchCompletion
 import com.tom.fourhourbody.ui.stretches.StretchStep
 import com.tom.fourhourbody.ui.stretches.toSteps
+import com.tom.fourhourbody.util.MonotonicTimer
+import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 
 /** Where the guided session currently is. */
 sealed interface SessionStage {
@@ -43,16 +47,23 @@ sealed interface SessionStage {
     data class Strength(val index: Int) : SessionStage
     data class Rest(val nextIndex: Int) : SessionStage
 
-    /** A miss of more than one rep ends the session — and with it the run — here. */
-    data class Stalled(val exerciseName: String, val runNumber: Int) : SessionStage
+    /**
+     * A set that failed to match the time it held last session at the same load ends the
+     * session — and with it the run — here.
+     */
+    data class Stalled(
+        val exerciseName: String,
+        val runNumber: Int,
+        val tulSeconds: Int,
+        val previousTulSeconds: Int,
+        /** Non-null only when this is the second stall in a row on this exercise. */
+        val plateau: Plateau?
+    ) : SessionStage
 
-    /** Hip flexor stretch, called from the stretch pillar rather than duplicated. */
-    data object KettlebellPrep : SessionStage
-    data object Tabata : SessionStage
-    data object Abs : SessionStage
     data class Summary(
         val evaluation: SessionEvaluation,
         val restDaysNow: Int,
+        val elapsedSessionTimeSec: Int,
         val run: RunProgress
     ) : SessionStage
 }
@@ -69,17 +80,17 @@ data class RunProgress(
 
 data class ExercisePrompt(
     val config: ExerciseConfigEntity,
-    val suggestedWeightKg: Double?,
-    val lastWeightKg: Double?,
-    val lastReps: Int?,
-    /** Heaviest ever logged for this exercise — what a set has to beat to be a record. */
-    val bestEverKg: Double?,
+    val suggestedLoad: Load?,
+    val previous: PreviousSet?,
+    /** Longest this exercise has ever been held — what a set has to beat to be a record. */
+    val bestEverTulSec: Int?,
     val position: Int,
     val total: Int
 ) {
-    /** A record is called while the weight is still on the bar, not in the summary. */
-    fun isRecord(weightKg: Double): Boolean =
-        bestEverKg != null && weightKg > bestEverKg + 0.01
+    val isBodyweight: Boolean get() = config.isBodyweight
+
+    /** Called while the set is still live, not minutes later in the summary. */
+    fun isRecord(tulSeconds: Int): Boolean = bestEverTulSec != null && tulSeconds > bestEverTulSec
 }
 
 class SessionViewModel(
@@ -97,33 +108,43 @@ class SessionViewModel(
     private val _gluteSteps = MutableStateFlow<List<StretchStep>>(emptyList())
     val gluteSteps: StateFlow<List<StretchStep>> = _gluteSteps.asStateFlow()
 
-    private val _hipFlexorSteps = MutableStateFlow<List<StretchStep>>(emptyList())
-    val hipFlexorSteps: StateFlow<List<StretchStep>> = _hipFlexorSteps.asStateFlow()
-
     private val _settings = MutableStateFlow(SettingsEntity())
     val settings: StateFlow<SettingsEntity> = _settings.asStateFlow()
+
+    private val _kind = MutableStateFlow(SessionKind.STANDARD)
+    val kind: StateFlow<SessionKind> = _kind.asStateFlow()
 
     private var sessionId: Long = 0
     private var configs: List<ExerciseConfigEntity> = emptyList()
     private val results = mutableListOf<ExerciseResult>()
     private val today = LocalDate.now()
 
+    /**
+     * Wall-clock start, from the monotonic clock. Worth having beside summed TUL: if the
+     * total creeps up while the time under load doesn't, the rests have quietly got longer.
+     */
+    private val startedAtMs = MonotonicTimer.now()
+
     /** Rest actually taken before the next exercise, carried into its log row. */
     private var pendingRestSec: Int = 0
 
-    init {
+    fun start(requestedKind: SessionKind) {
         viewModelScope.launch {
             val loaded = settingsRepository.current()
             _settings.value = loaded
-            configs = trainingRepository.activeStrengthConfigs()
+            val frequency = trainingRepository.frequency()
+            val kind = if (requestedKind == SessionKind.STANDARD && frequency.cuttingPhaseActive) {
+                SessionKind.CUTTING
+            } else {
+                requestedKind
+            }
+            _kind.value = kind
+            configs = trainingRepository.exercisesFor(kind, loaded.bigThreeOnly)
             _gluteSteps.value = stretchRepository
                 .configsForNow(StretchRoutine.PRE_WORKOUT)
                 .flatMap { it.toSteps() }
-            _hipFlexorSteps.value = stretchRepository
-                .configsForNow(StretchRoutine.PRE_KETTLEBELL)
-                .flatMap { it.toSteps() }
 
-            sessionId = trainingRepository.startSession(today)
+            sessionId = trainingRepository.startSession(today, kind)
 
             _stage.value = if (loaded.lockedPositionCueDismissed) {
                 SessionStage.GluteActivation
@@ -173,56 +194,93 @@ class SessionViewModel(
 
     private suspend fun loadPrompt(index: Int) {
         val config = configs.getOrNull(index) ?: return
-        val last = trainingRepository.lastLogFor(config.exerciseName)
         _prompt.value = ExercisePrompt(
             config = config,
-            suggestedWeightKg = trainingRepository.openingWeightFor(config),
-            lastWeightKg = last?.weightKg,
-            lastReps = last?.reps,
-            bestEverKg = trainingRepository.bestEverFor(config.exerciseName),
+            suggestedLoad = trainingRepository.openingLoadFor(config),
+            previous = trainingRepository.lastSetFor(config.exerciseName),
+            bestEverTulSec = trainingRepository.bestTulFor(config.exerciseName),
             position = index + 1,
             total = configs.size
         )
     }
 
     /**
-     * Log one exercise. A miss of more than one rep stops the session here — the remaining
-     * exercises are not run — and adds a rest day to every session that follows.
+     * Log one exercise.
+     *
+     * A set that fell short of the time the same load held last session stops the session
+     * here — the remaining exercises are not run — and adds a rest day to every session that
+     * follows. The brief is explicit that the stall ends the session, not just the exercise.
      */
-    fun logExercise(index: Int, weightKg: Double, reps: Int) {
+    fun logExercise(index: Int, weightKg: Double, position: String?, tulSeconds: Int, reps: Int) {
         val config = configs.getOrNull(index) ?: return
         viewModelScope.launch {
+            val load = Load(weightKg, position)
+            val previous = trainingRepository.lastSetFor(config.exerciseName)
+            val cadence = "${_settings.value.tempoUpSec}/${_settings.value.tempoDownSec}"
+
             trainingRepository.logExercise(
                 ExerciseLogEntity(
                     sessionId = sessionId,
                     exerciseName = config.exerciseName,
                     equipment = config.equipment,
                     weightKg = weightKg,
+                    seatPosition = position?.takeIf { it.isNotBlank() },
+                    tulSeconds = tulSeconds,
                     reps = reps,
-                    targetReps = config.targetReps,
-                    tempo = "${TrainingConstants.TEMPO_UP_SEC}/${TrainingConstants.TEMPO_DOWN_SEC}",
-                    restSecActual = pendingRestSec
+                    targetTulMinSec = config.targetTulMinSec,
+                    targetTulMaxSec = config.targetTulMaxSec,
+                    repCadenceSec = cadence,
+                    restSecActual = pendingRestSec,
+                    tulDerived = false
                 )
             )
-            results += ExerciseResult(config.exerciseName, weightKg, reps, config.targetReps)
+
+            val result = ExerciseResult(
+                exerciseName = config.exerciseName,
+                load = load,
+                tulSeconds = tulSeconds,
+                previous = previous,
+                targetMinSec = config.targetTulMinSec,
+                targetMaxSec = config.targetTulMaxSec,
+                isBodyweight = config.isBodyweight,
+                clearancesAtThisLoad = trainingRepository.clearancesAtLoad(
+                    exerciseName = config.exerciseName,
+                    load = load,
+                    targetMaxSec = config.targetTulMaxSec
+                )
+            )
+            results += result
             pendingRestSec = 0
 
             when {
-                ProgressionEngine.isStall(reps, config.targetReps) ->
-                    _stage.value = SessionStage.Stalled(
-                        exerciseName = config.exerciseName,
-                        runNumber = trainingRepository.currentRun(today).runNumber
-                    )
+                ProgressionEngine.isStall(result) -> {
+                    // Saved before the plateau is read, so this stall counts toward it.
+                    finishAndStall(result, previous)
+                }
 
-                index == configs.lastIndex -> _stage.value = nextAfterStrength()
+                index == configs.lastIndex -> finishSession()
 
                 else -> _stage.value = SessionStage.Rest(index + 1)
             }
         }
     }
 
-    private fun nextAfterStrength(): SessionStage =
-        if (_hipFlexorSteps.value.isNotEmpty()) SessionStage.KettlebellPrep else SessionStage.Tabata
+    private suspend fun finishAndStall(result: ExerciseResult, previous: PreviousSet?) {
+        val runNumber = trainingRepository.currentRun(today).runNumber
+        trainingRepository.finishSession(
+            sessionId = sessionId,
+            stalled = true,
+            elapsedSessionTimeSec = elapsedSec(),
+            notes = null
+        )
+        _stage.value = SessionStage.Stalled(
+            exerciseName = result.exerciseName,
+            runNumber = runNumber,
+            tulSeconds = result.tulSeconds,
+            previousTulSeconds = previous?.tulSeconds ?: 0,
+            plateau = trainingRepository.plateau()?.takeIf { it.exerciseName == result.exerciseName }
+        )
+    }
 
     fun onRestFinished(actualRestSec: Int, nextIndex: Int) {
         pendingRestSec = actualRestSec
@@ -232,39 +290,36 @@ class SessionViewModel(
         }
     }
 
-    fun logKettlebellRound(roundNumber: Int, swingCount: Int, bellWeightKg: Double) {
+    fun logPlateauTechnique(exerciseName: String, technique: PlateauTechnique) {
         viewModelScope.launch {
-            trainingRepository.logKettlebellRound(
-                KettlebellRoundEntity(
-                    sessionId = sessionId,
-                    roundNumber = roundNumber,
-                    swingCount = swingCount,
-                    bellWeightKg = bellWeightKg
-                )
+            trainingRepository.logPlateauTechnique(
+                sessionId = sessionId,
+                date = today,
+                exerciseName = exerciseName,
+                technique = technique,
+                notes = null
             )
         }
     }
 
-    fun onTabataFinished() {
-        if (_settings.value.sixMinuteAbsEnabled) {
-            _stage.value = SessionStage.Abs
-        } else {
-            finishSession()
-        }
-    }
-
-    fun onAbsFinished() = finishSession()
-
     fun skipToFinish() = finishSession()
 
+    private fun elapsedSec(): Int = ((MonotonicTimer.now() - startedAtMs) / 1000L).toInt()
+
     /**
-     * Saves the session and, when it stalled, applies the book's frequency adjustment: one more
-     * rest day before the next session.
+     * Saves the session and, when it stalled, applies the frequency adjustment: one more rest
+     * day before the next session. Reached either by running out of exercises or from the
+     * stall screen, which has already written the session row.
      */
     fun finishSession(notes: String? = null) {
         viewModelScope.launch {
             val evaluation = ProgressionEngine.evaluate(results)
-            trainingRepository.finishSession(sessionId, evaluation.stalled, notes)
+            trainingRepository.finishSession(
+                sessionId = sessionId,
+                stalled = evaluation.stalled,
+                elapsedSessionTimeSec = elapsedSec(),
+                notes = notes
+            )
             val restDays = if (evaluation.stalled) {
                 trainingRepository.applyStall(today)
             } else {
@@ -286,6 +341,7 @@ class SessionViewModel(
             _stage.value = SessionStage.Summary(
                 evaluation = evaluation,
                 restDaysNow = restDays,
+                elapsedSessionTimeSec = elapsedSec(),
                 run = RunProgress(
                     runNumber = run.runNumber,
                     sessionsThisRun = sessionsThisRun,

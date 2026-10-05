@@ -9,6 +9,7 @@ import com.tom.fourhourbody.data.dao.ColdDao
 import com.tom.fourhourbody.data.dao.CreatineDao
 import com.tom.fourhourbody.data.dao.MeasurementDao
 import com.tom.fourhourbody.data.dao.NutritionDao
+import com.tom.fourhourbody.data.dao.PlateauDao
 import com.tom.fourhourbody.data.dao.SettingsDao
 import com.tom.fourhourbody.data.dao.SleepDao
 import com.tom.fourhourbody.data.dao.StretchDao
@@ -22,12 +23,14 @@ import com.tom.fourhourbody.data.entity.ExerciseLogEntity
 import com.tom.fourhourbody.data.entity.FrequencySettingEntity
 import com.tom.fourhourbody.data.entity.KettlebellRoundEntity
 import com.tom.fourhourbody.data.entity.MeasurementEntity
+import com.tom.fourhourbody.data.entity.PlateauTechniqueLogEntity
 import com.tom.fourhourbody.data.entity.RunEntity
 import com.tom.fourhourbody.data.entity.SessionEntity
 import com.tom.fourhourbody.data.entity.SettingsEntity
 import com.tom.fourhourbody.data.entity.SleepLogEntity
 import com.tom.fourhourbody.data.entity.StretchConfigEntity
 import com.tom.fourhourbody.data.entity.StretchLogEntity
+import com.tom.fourhourbody.data.entity.SynergizeLogEntity
 
 /**
  * One database file for every pillar.
@@ -42,18 +45,20 @@ import com.tom.fourhourbody.data.entity.StretchLogEntity
         ExerciseLogEntity::class,
         ExerciseConfigEntity::class,
         KettlebellRoundEntity::class,
+        PlateauTechniqueLogEntity::class,
         FrequencySettingEntity::class,
         StretchLogEntity::class,
         StretchConfigEntity::class,
         DietDayLogEntity::class,
         DamageControlLogEntity::class,
+        SynergizeLogEntity::class,
         SleepLogEntity::class,
         ColdExposureLogEntity::class,
         CreatineLogEntity::class,
         MeasurementEntity::class,
         SettingsEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -62,6 +67,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun trainingDao(): TrainingDao
     abstract fun stretchDao(): StretchDao
     abstract fun nutritionDao(): NutritionDao
+    abstract fun plateauDao(): PlateauDao
     abstract fun sleepDao(): SleepDao
     abstract fun coldDao(): ColdDao
     abstract fun creatineDao(): CreatineDao

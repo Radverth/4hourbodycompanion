@@ -4,8 +4,14 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 /**
- * Frequency is rule-driven, not a fixed Mon/Thu. The gap starts at two rest days and grows by
- * one every time a session stalls, which is the book's actual mechanism for backing off.
+ * Frequency is rule-driven, not a fixed Mon/Thu. The gap starts at seven rest days — the
+ * book's own default of roughly once a week — and grows by one every time a session stalls.
+ *
+ * A gap that keeps widening is the mechanism working, not the trainee slipping. As you get
+ * stronger you take longer to recover from a set that goes all the way to failure, so the
+ * schedule has to stretch to match; the book is explicit that going out to ten or fourteen
+ * days costs nothing. The dashboard reads from [isUnusuallyLongGap] so it can say that
+ * rather than counting days at you.
  */
 object SessionScheduler {
 
@@ -30,6 +36,14 @@ object SessionScheduler {
 
     /** Applied when a session stalls: one more rest day for everything that follows. */
     fun restDaysAfterStall(currentRestDays: Int): Int = currentRestDays + 1
+
+    /**
+     * Past this, the gap is worth a second look — not because the protocol objects, but
+     * because at some width the explanation stops being recovery and starts being something
+     * else, and the app should not keep congratulating you either way.
+     */
+    fun isUnusuallyLongGap(restDaysBetween: Int): Boolean =
+        restDaysBetween > TrainingConstants.LONG_GAP_REST_DAYS
 
     /** How many sessions the current gap would fit into a window of [windowDays] days. */
     fun expectedSessionsIn(windowDays: Int, restDaysBetween: Int): Int {

@@ -5,6 +5,7 @@ import com.tom.fourhourbody.data.dao.NutritionDao
 import com.tom.fourhourbody.data.entity.DamageControlLogEntity
 import com.tom.fourhourbody.data.entity.DietDayLogEntity
 import com.tom.fourhourbody.data.entity.DietMode
+import com.tom.fourhourbody.data.entity.SynergizeLogEntity
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
@@ -69,5 +70,21 @@ class NutritionRepository(private val dao: NutritionDao) {
     ) {
         val existing = dao.getDamageControl(dietDayId) ?: DamageControlLogEntity(dietDayId = dietDayId)
         dao.upsertDamageControl(transform(existing))
+    }
+
+    // ---- Synergize ----
+
+    fun observeSynergize(date: LocalDate): Flow<SynergizeLogEntity?> = dao.observeSynergize(date)
+
+    fun observeSynergizeBetween(from: LocalDate, to: LocalDate): Flow<List<SynergizeLogEntity>> =
+        dao.observeSynergizeBetween(from, to)
+
+    /** Created on first touch, like the diet day — an untouched day has no row, not a row of noes. */
+    suspend fun updateSynergize(
+        date: LocalDate,
+        transform: (SynergizeLogEntity) -> SynergizeLogEntity
+    ) {
+        val existing = dao.getSynergize(date) ?: SynergizeLogEntity(date = date)
+        dao.upsertSynergize(transform(existing))
     }
 }
