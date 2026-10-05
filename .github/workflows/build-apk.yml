@@ -61,10 +61,7 @@ jobs:
           # the migration will upgrade from, and on a push it is the previous tip, which
           # re-checks the migration against whatever the merge actually produced. Passed
           # through the environment like every other value from the event.
-          MIGRATION_BASE_SHA: >-
-            ${{ github.event_name == 'pull_request'
-                && github.event.pull_request.base.sha
-                || github.event.before }}
+          MIGRATION_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
 
       - name: Run unit tests
         run: ./gradlew --no-daemon testDebugUnitTest
